@@ -3,8 +3,8 @@ charset,UTF-8
 name,悪役令嬢クローディア
 type,ghost
 
-sakura.name,クローディア
-kero.name,アンソニー
+sakura.name,Claudia
+kero.name,Anthony
 
 sstp.allowunspecifiedsend,1
 
