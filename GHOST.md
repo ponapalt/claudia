@@ -29,12 +29,12 @@
 | ファイル（`ghost/master/dic/normal/`） | 主な中身 |
 |---|---|
 | `yaya_aitalk.dic` | ランダムトーク（`RandomTalkEx`）、チェイントーク（`tea_review`、`mikirego`）、キー入力 `OnKeyPress`、時報と重なり `OnMinuteChange`、見切れ |
-| `yaya_bootend.dic` | 初回起動 `OnFirstBoot`、起動 `OnBoot`、終了 `OnClose`、時間帯の判定 `GetTimeSlot` |
+| `yaya_bootend.dic` | 初回起動 `OnFirstBoot`、起動 `OnBoot`、終了 `OnClose`、時間帯の判定 `GetTimeSlot`、最小化と復帰（`OnWindowStateMinimize` / `OnWindowStateRestore`、`OnFullScreenAppMinimize` / `OnFullScreenAppRestore`） |
 | `yaya_mouse.dic` | なで・つつきへの反応。関数名は「種別＋スコープ番号＋当たり判定名」（例: `MouseMove0Head`、`MouseDoubleClick1Tray`）。当たり判定名つきの関数が無ければ、名前なし（`MouseDoubleClick1` など）が呼ばれる |
 | `yaya_menu.dic` | メニュー `OpenMenu` と、選択肢ごとの処理 `Menu_*` |
 | `yaya_communicate.dic` | ユーザーとの会話、他のゴーストとの会話（`TalkTo*` / `ReplyTo*`） |
 | `yaya_change.dic` | ゴーストの切り替えや呼び出しのときのトーク |
-| `yaya_etc.dic` | シェル変更、インストール、消滅（vanish）、ネットワーク更新、ヘッドライン、時刻合わせなどのイベント |
+| `yaya_etc.dic` | シェル変更、インストール、消滅（vanish）、ネットワーク更新、ヘッドライン、時刻合わせなどのイベント。PC の様子（バッテリー、デバイスの抜き差し、壁紙の変更、音楽の再生） |
 | `yaya_string.dic` | メニュー項目やおすすめサイトなどのリソース（`On_*`） |
 | `yaya_word.dic` | トーク中に埋め込む単語（`%(tea)` 紅茶、`%(sweets)` お菓子、`%(food)` 料理） |
 | `yaya_homeurl.dic` | ネットワーク更新の URL（`On_homeurl`） |
