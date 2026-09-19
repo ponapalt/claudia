@@ -41,7 +41,7 @@ file,ghost/master/yaya_emerg.txtd9ee78e2068ff80d809325bd4fa8228bsize=1055date
 file,ghost/master/dic/emerg/yaya_emerg_dic.dic3f77010b4c5b819a9709f0277a144560size=689date=2026-09-19T18:20:56
 file,ghost/master/dic/emerg/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
 file,ghost/master/dic/normal/yaya_aitalk.dicbdcd9303640ef171f96b2c4919b80243size=14226date=2026-09-19T18:20:56
-file,ghost/master/dic/normal/yaya_bootend.dicda1ef4738c6ff47c26a158e0a0dc2ba7size=7627date=2026-09-20T07:12:55
+file,ghost/master/dic/normal/yaya_bootend.dicaf14a383a2a6feca1e1216676487efe9size=7691date=2026-09-20T07:22:09
 file,ghost/master/dic/normal/yaya_change.dic0277cbf4bba7ae7670e4f16f38dfe0ecsize=10949date=2026-09-20T07:04:06
 file,ghost/master/dic/normal/yaya_communicate.dic69113c27236708afa2b21744cf5c5cd3size=4409date=2026-09-19T18:20:56
 file,ghost/master/dic/normal/yaya_etc.dic9845892d03c9381e791ca2ee56f5b70asize=25105date=2026-09-20T07:16:01
