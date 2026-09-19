@@ -510,13 +510,70 @@ OnScreenSaverEnd
 //  reference[1] 残り時間（不明なら -1）
 //  reference[2] offline（バッテリー駆動）/ online（電源供給中）/ backup（補助電源）
 //  reference[3] high / low / critical / charging / no_battery / power_saving のカンマ区切り
+//
+//SSP はバッテリーの様子が変わるたびにこれらのイベントを送るので、残量が 1％減るだけでも
+//OnBatteryLow が飛んでくる。そのまま話すとうるさいので、下の BatteryTalkOK で
+//「状態が変わったときだけ話す」ようにしている。
 //------------------------------------------------------------------------------
+
+//---- reference[3] に指定した状態（low、critical、charging など）が入っているか
+BatteryFlag
+{
+	STRSTR(',' + reference[3] + ',', ',' + _argv[0] + ',', 0) >= 0
+}
+
+//---- バッテリーの話をしてよいか。状態が変わったときだけ 1 を返す
+//  _argv[0] 今の状態（'charging' / 'unplugged' / 'low' / 'critical'）
+//  _argv[1] 同じ状態が続いているとき、この分数が過ぎたらもう一度だけ知らせる（0 なら黙る）
+//  _argv[2] 状態が変わっても、直前のバッテリーの話からこの分数はあける（0 ならすぐ話す）
+//覚えておく値は一時変数なので、SSP を立ち上げ直すと最初の一回はまた話す
+BatteryTalkOK
+{
+	//---- if ブロックの中で初めて代入したローカル変数はブロックの外に出ないので、先に置く
+	_ok   = 0
+	_now  = GETTICKCOUNT
+	_past = 0
+
+	if GETTYPE(batterystate) == 0 {
+		batterystate = ''
+	}
+	if GETTYPE(batterytalktime) != 1 {
+		batterytalktime = 0
+	}
+
+	//---- 前に話してからの経過ミリ秒。GETTICKCOUNT が巻き戻ったら十分経ったものとして扱う
+	_past = _now - batterytalktime
+	if _past < 0 {
+		_past = 86400000
+	}
+
+	if batterystate != _argv[0] {
+		if _past >= _argv[2] * 60000 {
+			_ok = 1
+		}
+	}
+	elseif _argv[1] > 0 && _past >= _argv[1] * 60000 {
+		_ok = 1
+	}
+
+	batterystate = _argv[0]
+	if _ok {
+		batterytalktime = _now
+	}
+	SHIORI3FW.RegisterTempVar('batterystate', 'batterytalktime')
+
+	_ok
+}
 
 //------------------------------------------------------------------------------
 //充電開始（電源をつないだ）
 //------------------------------------------------------------------------------
 OnBatteryChargingStart
 {
+	if !BatteryTalkOK('charging', 0, 0) {
+		return ''
+	}
+
 	"\u\s[10]\0\s[0]電源をお繋ぎになりましたのね。\w9\nただいま%(TOINT(reference[0]))％ですわ。\w8\1満ちるまでお待ちを。\e"
 	'\u\s[10]\0\s[26]ようやく気づきましたのね。\w8\1お嬢様が気を揉んでおいででした。\w8\0\s[7]\n\n揉んでなどいませんわ。\e'
 	'\u\s[10]\0\s[25]お給仕の時間ですわね。\w9\nこの子にも滋養が要りますの。\w8\1さようでございます。\e'
@@ -527,6 +584,10 @@ OnBatteryChargingStart
 //------------------------------------------------------------------------------
 OnBatteryChargingStop
 {
+	if !BatteryTalkOK('unplugged', 0, 0) {
+		return ''
+	}
+
 	"\u\s[10]\0\s[0]電源をお外しになりましたわね。\w9\n残り%(TOINT(reference[0]))％、心得ておきなさいな。\e"
 	'\u\s[10]\0\s[26]お出かけですの？\w8\1いってらっしゃいませ。\w8\0\s[1]\n\n‥\w5‥\w5お早いお戻りを。\e'
 	"\u\s[10]\0\s[6]これよりは自前の力で参りますわ。\w8\1残量%(TOINT(reference[0]))％でございます。\e"
@@ -534,18 +595,35 @@ OnBatteryChargingStop
 
 //------------------------------------------------------------------------------
 //バッテリー残量が少なめ（1/3 以下）
+//1／3 を切ったときに一度だけ。減り続けても黙り、30 分過ぎたらもう一度だけ促す
 //------------------------------------------------------------------------------
 OnBatteryLow
 {
+	//---- 充電中と、より深刻な critical のときは、こちらでは話さない
+	if BatteryFlag('charging') || BatteryFlag('critical') {
+		return ''
+	}
+	if !BatteryTalkOK('low', 30, 3) {
+		return ''
+	}
+
 	"\u\s[10]\0\s[7]残り%(TOINT(reference[0]))％でしてよ。\w9\nそろそろ電源をお繋ぎなさい。\w8\1お早めに。\e"
 	"\u\s[10]\0\s[4]この子、息が上がっていますわ。\w9\n残量%(TOINT(reference[0]))％。\w8\1充電をお勧めいたします。\e"
 }
 
 //------------------------------------------------------------------------------
 //バッテリー残量が危機的（5％以下）
+//急を要するので、10 分ごとに繰り返し警告する
 //------------------------------------------------------------------------------
 OnBatteryCritical
 {
+	if BatteryFlag('charging') {
+		return ''
+	}
+	if !BatteryTalkOK('critical', 10, 0) {
+		return ''
+	}
+
 	"\u\s[10]\0\s[2]残り%(TOINT(reference[0]))％！\w9\n今すぐ電源をお繋ぎなさい！\w8\1お急ぎくださいませ。\e"
 	"\u\s[10]\0\s[2]お待ちなさい、%(username)！\w9\n%(TOINT(reference[0]))％ですわよ！\w8\1保存だけでもお済ませを。\e"
 }
