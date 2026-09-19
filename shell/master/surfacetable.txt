@@ -23,3 +23,9 @@ group,アンソニー
 	10,素
 	11,刮目
 }
+
+group,__disabled
+{
+	1000,__parts
+	1001,__parts
+}

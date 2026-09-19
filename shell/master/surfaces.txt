@@ -13,6 +13,12 @@ collision2,125,110,206,165,Face
 collision3,131,188,200,238,Bust
 collision4,69,138,125,288,Hair
 collision5,200,138,250,206,Hair
+
+animation0.interval,sometimes
+animation0.pattern0,overlay,1001,0,114,100
+animation0.pattern1,overlay,1000,50,112,100
+animation0.pattern2,overlay,1001,50,114,100
+animation0.pattern3,overlay,-1,50,0,0
 }
 
 surface1
@@ -57,6 +63,9 @@ collision5,212,212,256,288,Hair
 
 surface6
 {
+element0,base,surface0.png,0,0
+element1,overlay,surface1000.png,112,100
+
 collision0,210,210,288,281,Fan
 collision1,106,31,225,108,Head
 collision2,125,110,206,165,Face
@@ -87,12 +96,15 @@ collision5,200,138,250,206,Hair
 
 surface26
 {
-collision0,206,206,288,281,Fan
+element0,base,surface0.png,0,0
+element1,overlay,surface1001.png,114,100
+
+collision0,210,210,288,281,Fan
 collision1,106,31,225,108,Head
 collision2,125,110,206,165,Face
 collision3,131,188,200,238,Bust
 collision4,69,138,125,288,Hair
-collision5,200,138,250,200,Hair
+collision5,200,138,250,206,Hair
 }
 
 surface10
@@ -105,6 +117,9 @@ collision3,118,324,246,478,Body
 
 surface11
 {
+element0,base,surface10.png,0,0
+element1,overlay,anthony_eyes11.png,130,270
+
 collision0,70,339,150,371,Tray
 collision1,145,230,190,269,Head
 collision2,118,271,216,322,Face

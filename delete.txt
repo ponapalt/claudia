@@ -1,1 +1,4 @@
 charset,UTF-8
+shell\master\surface11.png
+shell\master\surface26.png
+shell\master\surface6.png
