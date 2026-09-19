@@ -1,0 +1,17 @@
+charset,UTF-8
+
+name,悪役令嬢クローディア
+type,ghost
+
+sakura.name,クローディア
+kero.name,アンソニー
+
+sstp.allowunspecifiedsend,1
+
+icon,icon.ico
+
+shiori,yaya.dll
+
+craftman,ponapalt&claudia
+craftmanw,ponapalt&claudia
+craftmanurl,https://github.com/ponapalt/claudia

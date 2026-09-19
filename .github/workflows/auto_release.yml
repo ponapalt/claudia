@@ -1,0 +1,61 @@
+name: auto release
+
+on:
+  workflow_run:
+    workflows: ["auto check"]
+    types:
+      - completed
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    name: auto release
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Delete all releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all release IDs
+          releases=$(gh api repos/${{ github.repository }}/releases | jq -r '.[].id')
+          
+          # Delete each release
+          for release_id in $releases; do
+            gh api -X DELETE repos/${{ github.repository }}/releases/$release_id
+          done
+          
+          # Get all tags
+          tags=$(gh api repos/${{ github.repository }}/tags | jq -r '.[].name')
+          
+          # Delete each tag
+          for tag in $tags; do
+            gh api -X DELETE repos/${{ github.repository }}/git/refs/tags/$tag
+          done
+      
+      - name: build nar
+        # Files to exclude are listed in .narignore
+        shell: pwsh
+        run: ./tools/build-nar.ps1 -OutFile claudia.nar
+      
+      - name: Create and upload release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.run_id }}
+          name: 自動リリース
+          body: |
+            - エラーチェックで引っかからなかった時の最新版の自動リリースです
+            - 下記のうち **claudia.nar** のみをダウンロードしてください。Source Codeは不要です。
+          draft: false
+          prerelease: false
+          files: |
+            claudia.nar
