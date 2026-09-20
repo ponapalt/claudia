@@ -4,3 +4,7 @@ include:.narignore
 
 # delete.txt is needed by network updates
 !/delete.txt
+
+# remove balloons from update
+/claudia/
+/claudia_vertical/

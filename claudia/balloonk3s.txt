@@ -1,0 +1,79 @@
+// アンソニー側（\1）のバルーンだけの上書き。
+// 書いていない項目は descript.txt から引き継がれる。
+// このファイルは work/balloon/text/kero-override.txt から
+// balloonk0s.txt / balloonk1s.txt … として配置される。
+
+//--- 本文（濃紺のインク） ---
+font.color.r,35
+font.color.g,38
+font.color.b,64
+
+font.shadowcolor.r,216
+font.shadowcolor.g,225
+font.shadowcolor.b,243
+
+//--- リンク（アンカー）はブローチの深緑 ---
+anchor.font.color.r,20
+anchor.font.color.g,100
+anchor.font.color.b,116
+anchor.pen.color.r,22
+anchor.pen.color.g,109
+anchor.pen.color.b,123
+anchor.font.shadowcolor.r,216
+anchor.font.shadowcolor.g,225
+anchor.font.shadowcolor.b,243
+
+anchor.notselect.font.color.r,20
+anchor.notselect.font.color.g,100
+anchor.notselect.font.color.b,116
+anchor.notselect.pen.color.r,120
+anchor.notselect.pen.color.g,168
+anchor.notselect.pen.color.b,178
+anchor.notselect.font.shadowcolor.r,216
+anchor.notselect.font.shadowcolor.g,225
+anchor.notselect.font.shadowcolor.b,243
+
+anchor.visited.font.color.r,80
+anchor.visited.font.color.g,96
+anchor.visited.font.color.b,120
+anchor.visited.pen.color.r,150
+anchor.visited.pen.color.g,164
+anchor.visited.pen.color.b,190
+anchor.visited.font.shadowcolor.r,216
+anchor.visited.font.shadowcolor.g,225
+anchor.visited.font.shadowcolor.b,243
+
+//--- 選択肢（カーソル） ---
+cursor.brush.color.r,206
+cursor.brush.color.g,222
+cursor.brush.color.b,246
+cursor.pen.color.r,22
+cursor.pen.color.g,109
+cursor.pen.color.b,123
+cursor.font.color.r,35
+cursor.font.color.g,38
+cursor.font.color.b,64
+cursor.font.shadowcolor.r,246
+cursor.font.shadowcolor.g,250
+cursor.font.shadowcolor.b,255
+
+cursor.notselect.font.color.r,20
+cursor.notselect.font.color.g,100
+cursor.notselect.font.color.b,116
+cursor.notselect.font.shadowcolor.r,216
+cursor.notselect.font.shadowcolor.g,225
+cursor.notselect.font.shadowcolor.b,243
+
+//--- カウンタと SSTP メッセージ ---
+number.font.color.r,80
+number.font.color.g,96
+number.font.color.b,130
+
+sstpmessage.font.color.r,80
+sstpmessage.font.color.g,96
+sstpmessage.font.color.b,130
+
+//--- 矢印・マーカーもアンソニーの色のものに差し替える ---
+arrow.filename,arrowb
+sstpmarker.filename,sstpb
+onlinemarker.filename,onlineb

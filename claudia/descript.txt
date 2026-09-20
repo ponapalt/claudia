@@ -1,0 +1,148 @@
+charset,UTF-8
+type,balloon
+name,クローディア
+
+craftman,ponapalt&claudia
+craftmanw,ponapalt&claudia
+craftmanurl,https://github.com/ponapalt/claudia
+
+readme,readme.txt
+readme.charset,UTF-8
+
+//--- 画像の透過 ---
+// 画像は 32bit RGBA PNG。左上のキーカラーではなくアルファチャンネルを使う
+use_self_alpha,1
+use_input_alpha,1
+
+//--- 文字の表示範囲 ---
+// バルーン本体は x = 10..390（380px 幅）。しっぽは左右どちらかに 9px 出る
+// 本文に入る量は、全角 23 文字（1 文字 15px で 345px）×
+// s0/s1 9 行・s2/s3 24 行・k0/k1 4 行・k2/k3 9 行
+// （1 行 17px = font.height + 2。最終行の下に SSP が 12px 取る）
+validrect.left,23
+validrect.top,14
+validrect.right,-23
+validrect.bottom,-12
+
+wordwrappoint.x,-26
+wordwrappoint.y,0
+
+//--- フォント ---
+// 明朝体で令嬢の手紙らしく。ゴシックにしたいときは font.name を差し替える
+font.name,游明朝,Yu Mincho,ヒラギノ明朝 ProN W3,MS 明朝
+font.height,15
+
+font.color.r,74
+font.color.g,43
+font.color.b,30
+
+font.shadowstyle,offset
+font.shadowcolor.r,238
+font.shadowcolor.g,222
+font.shadowcolor.b,199
+
+//--- リンク（アンカー） ---
+anchor.style,underline
+anchor.font.color.r,158
+anchor.font.color.g,62
+anchor.font.color.b,28
+anchor.pen.color.r,197
+anchor.pen.color.g,150
+anchor.pen.color.b,78
+anchor.font.shadowstyle,offset
+anchor.font.shadowcolor.r,238
+anchor.font.shadowcolor.g,222
+anchor.font.shadowcolor.b,199
+
+anchor.notselect.style,underline
+anchor.notselect.font.color.r,158
+anchor.notselect.font.color.g,62
+anchor.notselect.font.color.b,28
+anchor.notselect.pen.color.r,212
+anchor.notselect.pen.color.g,180
+anchor.notselect.pen.color.b,132
+anchor.notselect.font.shadowstyle,offset
+anchor.notselect.font.shadowcolor.r,238
+anchor.notselect.font.shadowcolor.g,222
+anchor.notselect.font.shadowcolor.b,199
+
+anchor.visited.style,underline
+anchor.visited.font.color.r,132
+anchor.visited.font.color.g,92
+anchor.visited.font.color.b,64
+anchor.visited.pen.color.r,192
+anchor.visited.pen.color.g,162
+anchor.visited.pen.color.b,122
+anchor.visited.font.shadowstyle,offset
+anchor.visited.font.shadowcolor.r,238
+anchor.visited.font.shadowcolor.g,222
+anchor.visited.font.shadowcolor.b,199
+
+//--- 選択肢（カーソル） ---
+cursor.style,square
+cursor.blendmethod,none
+cursor.brush.color.r,238
+cursor.brush.color.g,208
+cursor.brush.color.b,146
+cursor.pen.color.r,160
+cursor.pen.color.g,74
+cursor.pen.color.b,38
+cursor.font.color.r,74
+cursor.font.color.g,43
+cursor.font.color.b,30
+cursor.font.shadowstyle,offset
+cursor.font.shadowcolor.r,255
+cursor.font.shadowcolor.g,247
+cursor.font.shadowcolor.b,230
+
+// 未選択の選択肢も、地の文と見分けがつくようにテラコッタにする
+cursor.notselect.style,none
+cursor.notselect.font.color.r,158
+cursor.notselect.font.color.g,62
+cursor.notselect.font.color.b,28
+cursor.notselect.font.shadowstyle,offset
+cursor.notselect.font.shadowcolor.r,238
+cursor.notselect.font.shadowcolor.g,222
+cursor.notselect.font.shadowcolor.b,199
+
+//--- スクロール矢印 ---
+arrow0.x,-21
+arrow0.y,8
+arrow1.x,-21
+arrow1.y,-18
+
+//--- 通信中・SSTP の表示 ---
+onlinemarker.x,26
+onlinemarker.y,-24
+onlinemarker.interval,400
+
+sstpmarker.x,26
+sstpmarker.y,-20
+
+sstpmessage.x,38
+sstpmessage.y,-22
+sstpmessage.font.height,10
+sstpmessage.font.color.r,150
+sstpmessage.font.color.g,108
+sstpmessage.font.color.b,58
+
+//--- 残り時間などのカウンタ ---
+number.font.height,10
+number.font.color.r,150
+number.font.color.g,108
+number.font.color.b,58
+number.xr,-28
+number.y,-20
+
+//--- 入力ボックス ---
+communicatebox.x,10
+communicatebox.y,17
+communicatebox.width,362
+communicatebox.height,24
+communicatebox.font.name,游ゴシック,Yu Gothic,メイリオ,MS ゴシック
+communicatebox.font.color.r,74
+communicatebox.font.color.g,43
+communicatebox.font.color.b,30
+communicatebox.background.color.r,255
+communicatebox.background.color.g,251
+communicatebox.background.color.b,243

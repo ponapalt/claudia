@@ -15,8 +15,12 @@ kero.balloon.alignment,none
 sakura.seriko.alignmenttodesktop,free
 kero.seriko.alignmenttodesktop,free
 
-sakura.balloon.offsetx,25
-sakura.balloon.offsety,20
+sakura.balloon.offsetx,50
+sakura.balloon.offsety,15
+sakura.balloon.offsetxc,-5
+sakura.balloon.offsetyc,10
 
-kero.balloon.offsetx,60
-kero.balloon.offsety,210
+kero.balloon.offsetx,70
+kero.balloon.offsety,220
+kero.balloon.offsetxc,0
+kero.balloon.offsetyc,220

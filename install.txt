@@ -2,3 +2,5 @@ charset,UTF-8
 type,ghost
 name,悪役令嬢クローディア
 directory,claudia
+balloon0.directory,claudia
+balloon1.directory,claudia_vertical

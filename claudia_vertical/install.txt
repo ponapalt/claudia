@@ -1,0 +1,5 @@
+charset,UTF-8
+type,balloon
+name,クローディア（頭上）
+directory,claudia_vertical
+refresh,1
