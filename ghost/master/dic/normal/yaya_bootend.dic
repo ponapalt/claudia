@@ -44,6 +44,9 @@ OnFirstBoot
 
 OnBoot
 {
+	//---- Claude Code のセッションの見張りを始める（yaya_claudecode.dic）
+	CC.Start
+	--
 	//---- まず双方のサーフィスを表示
 	'\0\s[0]\1\s[10]'
 	--

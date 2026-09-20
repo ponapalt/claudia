@@ -33,6 +33,11 @@ OpenMenu
 	--
 	AYATEMPLATE.MenuItem("クローディアに話しかける","Menu_COMMUNICATEOPEN")
 	--
+	//---- Claude Code が動いているときだけ見せる
+	if ( ARRAYSIZE(CC.Scan) > 0 ) {
+		AYATEMPLATE.MenuItem("Claude Code の様子は？","Menu_CLAUDECODE")
+	}
+	--
 	AYATEMPLATE.MenuItem("なんでもない","Menu_CANCEL",150)
 }
 
@@ -89,6 +94,29 @@ Menu_COMMUNICATEOPEN
 Menu_GHOSTCOMSTART
 {
 	StartCommunicate
+}
+
+//---- Claude Code の様子（起動中のセッション一覧）
+Menu_CLAUDECODE
+{
+	_body = CC.ListBody
+
+	if STRLEN(_body) == 0 {
+		return '\0\s[4]もう誰も働いておりませんわ。\e'
+	}
+	"\u\s[10]\0\s[26]ご覧なさい。\w9\n今、これだけ動いておりましてよ。\w8\n\n%(_body)"
+	--
+	AYATEMPLATE.MenuItem("見張りを立て直す","Menu_CCWATCH",200)
+	--
+	AYATEMPLATE.MenuItem("戻る","OpenMenu")
+}
+
+//---- filewatch を登録し直す（辞書を読み込み直したあとなど）
+Menu_CCWATCH
+{
+	CC.Start
+	--
+	'\0\s[0]見張りを立て直しましたわ。\w8\1つつがなく。\e'
 }
 
 //---- キャンセルされた

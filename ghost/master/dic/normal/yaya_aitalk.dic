@@ -156,6 +156,10 @@ OnMinuteChange
 		//---- 大抵はkero側を引き離す処理を行う
 		'\0\s[7]アンソニー、近いですわ。\w8\1失礼いたしました。\4\e'
 	}
+	else{
+		//---- Claude Code が長く考え込んでいたら一度だけ声をかける（yaya_claudecode.dic）
+		CC.LongBusy
+	}
 }
 
 
