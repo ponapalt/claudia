@@ -72,7 +72,7 @@ CC.ReadFile
 	_text = ''
 	if FOPEN(_argv[0], 'r') {
 		_text = FREAD(_argv[0])
-		FCLOSE(_argv[0])
+		void FCLOSE(_argv[0])
 	}
 	//---- 空のファイルだと FREAD が -1 を返す
 	if _text == -1 {
