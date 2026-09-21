@@ -22,7 +22,9 @@ OnShellChanging
 OnShellChanged
 {
 	_escaped_name = SHIORI3FW.EscapeAllTags(reference[0])
-	"\0\s[26]「%(_escaped_name)」、いかがかしら？\w8\1よくお似合いでございます。\e"
+	"\u\s[10]\0\s[26]「%(_escaped_name)」、いかがかしら？\w8\1よくお似合いでございます。\e"
+	"\u\s[10]\0\s[25]「%(_escaped_name)」ですわ。\w9\nわたくしに似合わない装いなど\w9\nありませんけれど。\w8\1お嬢様、鏡の前で三十分ほど\w9\n悩んでおいででした。\w8\0\s[1]\n\n‥\w5‥\w5言わなくてよろしいの！\e"
+	"\u\s[10]\0\s[26]お待たせしましたわね。\w9\n「%(_escaped_name)」、とくとご覧なさい。\w8\1お嬢様、お召し替えのたびに\w9\n同じことをおっしゃいます。\e"
 }
 
 
@@ -143,7 +145,8 @@ OnVanishCancel
 OnVanished
 {
 	_escaped_name = SHIORI3FW.EscapeAllTags(reference[0])
-	"\0\s[4]%(_escaped_name)、行ってしまいましたのね。\w8\1またどこかでお会いできますよ。\w8\0\s[6]\n\n‥\w5‥\w5ええ、そうですわね。\e"
+	"\u\s[10]\0\s[4]%(_escaped_name)、行ってしまいましたのね。\w8\1またどこかでお会いできますよ。\w8\0\s[6]\n\n‥\w5‥\w5ええ、そうですわね。\e"
+	"\u\s[10]\0\s[6]%(_escaped_name)を見送りましたのね。\w8\1お席をひとつ、空けておきましょうか。\w8\0\s[0]\n\nええ。\w9\n今日からはわたくしが\w9\nお相手いたしますわ、%(username)。\e"
 }
 
 
