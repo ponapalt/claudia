@@ -31,8 +31,8 @@ docs/agents/workflows/setup.mdf598cb11b498fb169fa3c05cfd0b9a9bsize=5244date=2
 docs/agents/workflows/try-in-ssp.mda99511b17c22b630c0e4f1bc8fa6f6bfsize=7049date=2026-09-19T18:20:56
 docs/agents/workflows/update-devkit.mdd31c0aa10ce2f5785c00ba169e0c3df2size=4797date=2026-09-19T18:20:56
 docs/agents/workflows/update-yaya.md3b8c923ce6f7b2f2bf90b4a89e02c92dsize=14114date=2026-09-19T18:20:56
-ghost/master/descript.txt828468f9b12f6c0189f1a7a5b2c5b08fsize=264date=2026-09-20T01:07:49
-ghost/master/icon.ico81b9d8a3008677daf5e07c27c2dfbe58size=140368date=2026-09-20T00:38:49
+ghost/master/descript.txt6da441bffadfbf59600b50c184b153c5size=964date=2026-09-22T07:13:26
+ghost/master/icon.icoc70d178fa76727c1858bbe0c34867c8dsize=94409date=2026-09-22T07:06:50
 ghost/master/system_config.txt3965602fadd8acb2ee46c0310704c3e1size=682date=2026-09-19T18:20:56
 ghost/master/yaya.dll5a4ff00906859d7124fbe1c8aacecdf8size=909312date=2026-09-19T18:20:56
 ghost/master/yaya.txtc720df5cb99a1e84891b871c99a712absize=1993date=2026-09-19T18:20:56
@@ -64,6 +64,9 @@ ghost/master/dic/system/yaya_base/config.dicd07874f4b1ba03ba111df8f2fa3cd6dbsi
 ghost/master/dic/system/yaya_base/lint.dic1cf05026921eac31d2c89d225cefc2cesize=21118date=2026-09-19T18:20:56
 ghost/master/dic/system/yaya_base/optional.dicff4da728a656a8aa6a38939e654c51f2size=9953date=2026-09-19T18:20:56
 ghost/master/dic/system/yaya_base/shiori3.dic50569aecd921bc28c40b0142591b472dsize=57034date=2026-09-19T18:20:56
+ghost/master/menu/menu_background.pngb0555d6fdbc9f5a363e0a9dc1b5625cdsize=18805date=2026-09-22T07:13:27
+ghost/master/menu/menu_foreground.png3374dd7e3d73299951ff39cea3784d1asize=22769date=2026-09-22T07:13:27
+ghost/master/menu/menu_sidebar.png22cef6564d09043e1533a3e17e10f7a7size=2610date=2026-09-22T07:13:27
 shell/master/anthony_eyes11.png1168e4258d5d8f5a216ca1b5b5ef608csize=5990date=2026-09-20T06:51:23
 shell/master/descript.txt3b61c03d995696ae13520d0e6cafbc08size=506date=2026-09-21T07:31:51
 shell/master/surface0.pnga3380cf5ba6b15ce938f29ba59cab9adsize=191862date=2026-09-19T18:20:56
