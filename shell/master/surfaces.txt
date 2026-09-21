@@ -107,6 +107,11 @@ collision4,69,138,125,288,Hair
 collision5,200,138,250,206,Hair
 }
 
+surface29
+{
+element0,base,surface29.png,0,0
+}
+
 surface10
 {
 collision0,70,339,150,371,Tray
@@ -124,4 +129,9 @@ collision0,70,339,150,371,Tray
 collision1,145,230,190,269,Head
 collision2,118,271,216,322,Face
 collision3,118,324,246,478,Body
+}
+
+surface19
+{
+element0,base,surface19.png,0,0
 }
