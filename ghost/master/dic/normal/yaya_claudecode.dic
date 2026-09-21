@@ -263,7 +263,7 @@ CC.LastMessage
 		return ''
 	}
 	if _size > 262144 {
-		_ok = FSEEK(_path, _size - 262144, 'start')
+		void FSEEK(_path, _size - 262144, 'start')
 		//---- 行の途中から読み始めるので、最初の 1 行は捨てる
 		_line = FREAD(_path)
 	}
@@ -276,7 +276,7 @@ CC.LastMessage
 			_last = _line
 		}
 	}
-	_ok = FCLOSE(_path)
+	void FCLOSE(_path)
 	_last
 }
 
