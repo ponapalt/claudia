@@ -4,16 +4,18 @@
 .DESCRIPTION
     Writes 32bit RGBA PNG files. The balloon geometry follows the SSP default balloon
     ("ssp" / "ssp_vertical") so the coordinate settings of descript.txt carry over:
-      side     : canvas 414 x H, body x = 10..404 (394 wide), 9px tail on the left or right.
-                 tail center y = H - 103 (sakura) / H - 46 (kero).
-      vertical : canvas 397 x (H + 9), body full width, 9px tail at the bottom center.
+      side     : canvas 400 x H, body x = 10..390 (380 wide), 9px tail on the left or right.
+                 tail center y = H - 115 (sakura) / H - 58 (kero).
+      vertical : canvas 383 x (H + 9), body full width, 9px tail at the bottom center.
     The body holds the text the descript.txt files promise:
-      s0/s1 10 lines, s2/s3 25 lines, k0/k1 5 lines, k2/k3 10 lines, all 24 glyphs wide.
+      s0/s1 9 lines, s2/s3 24 lines, k0/k1 4 lines, k2/k3 9 lines, all 23 glyphs wide.
     At font.height 15 a full width glyph is 15px wide and SSP advances 17px per line,
-    and it keeps about 12px free below the last line. 18px per line is used here so the
-    count still holds if another font is picked up:
-      height = lines * 18 + 38 (26 for the validrect margins, 12 for that free strip).
-    Only the images are written; descript.txt and the other text files are kept by hand.
+    and it keeps about 12px free below the last line:
+      height = lines * 17 + 53
+        (14 top margin, 24 bottom margin, 12 for that free strip, 3 to spare).
+    The bottom margin keeps the text clear of the online / SSTP markers, the SSTP
+    message and the counter, which sit 10..24px above the bottom edge of the body.
+    descript.txt and the other text files are copied from text/ as they are.
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File work/balloon/make-balloon.ps1
 #>
@@ -374,14 +376,14 @@ function Build-Side {
     $rad = 14.0
     # name, height, theme, tail offset from the bottom, tail direction
     $specs = @(
-        , @('balloons0', 194, $themeS, 103, 1)
-        , @('balloons1', 194, $themeS, 103, 2)
-        , @('balloons2', 449, $themeS, 103, 1)
-        , @('balloons3', 449, $themeS, 103, 2)
-        , @('balloonk0', 109, $themeK, 46, 1)
-        , @('balloonk1', 109, $themeK, 46, 2)
-        , @('balloonk2', 194, $themeK, 46, 1)
-        , @('balloonk3', 194, $themeK, 46, 2)
+        , @('balloons0', 206, $themeS, 115, 1)
+        , @('balloons1', 206, $themeS, 115, 2)
+        , @('balloons2', 461, $themeS, 115, 1)
+        , @('balloons3', 461, $themeS, 115, 2)
+        , @('balloonk0', 121, $themeK, 58, 1)
+        , @('balloonk1', 121, $themeK, 58, 2)
+        , @('balloonk2', 206, $themeK, 58, 1)
+        , @('balloonk3', 206, $themeK, 58, 2)
     )
     foreach ($s in $specs) {
         $h = [int]$s[1]
@@ -401,10 +403,10 @@ function Build-Vertical {
     New-Item -ItemType Directory -Force $Dir | Out-Null
     $rad = 14.0
     $specs = @(
-        , @('balloons0', 194, $themeS)
-        , @('balloons2', 449, $themeS)
-        , @('balloonk0', 109, $themeK)
-        , @('balloonk2', 194, $themeK)
+        , @('balloons0', 206, $themeS)
+        , @('balloons2', 461, $themeS)
+        , @('balloonk0', 121, $themeK)
+        , @('balloonk2', 206, $themeK)
     )
     foreach ($s in $specs) {
         $bh = [int]$s[1]

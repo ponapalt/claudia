@@ -5,6 +5,7 @@ name,クローディア
 craftman,ponapalt&claudia
 craftmanw,ponapalt&claudia
 craftmanurl,https://github.com/ponapalt/claudia
+homeurl,https://raw.githubusercontent.com/ponapalt/claudia/main/claudia/
 
 readme,readme.txt
 readme.charset,UTF-8
@@ -19,10 +20,11 @@ use_input_alpha,1
 // 本文に入る量は、全角 23 文字（1 文字 15px で 345px）×
 // s0/s1 9 行・s2/s3 24 行・k0/k1 4 行・k2/k3 9 行
 // （1 行 17px = font.height + 2。最終行の下に SSP が 12px 取る）
+// 下の余白は、通信中・SSTP の表示とカウンタ（下端から 10〜24px）に本文がかからない幅
 validrect.left,23
 validrect.top,14
 validrect.right,-23
-validrect.bottom,-12
+validrect.bottom,-24
 
 wordwrappoint.x,-26
 wordwrappoint.y,0

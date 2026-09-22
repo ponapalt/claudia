@@ -26,13 +26,14 @@ windowposition.limit,1
 // 本文に入る量は、全角 23 文字（1 文字 15px で 345px）×
 // s0 9 行・s2 24 行・k0 4 行・k2 9 行
 // （1 行 17px = font.height + 2。最終行の下に SSP が 12px 取る）
+// 下の余白は、通信中・SSTP の表示とカウンタ（しっぽを除いた下端から 10〜24px）に本文がかからない幅
 origin.x,14
 origin.y,14
 
 validrect.left,14
 validrect.top,14
 validrect.right,-14
-validrect.bottom,-21
+validrect.bottom,-33
 
 wordwrappoint.x,-18
 wordwrappoint.y,0
