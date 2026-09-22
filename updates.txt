@@ -8,7 +8,7 @@ file,.updateignore58c4a4b2295e7e74300ac7642b5554f5size=333date=2026-09-21T07:
 file,AGENTS.md5f0ce52299ec3d3a3f623f763eea1f0bsize=15252date=2026-09-19T18:20:56
 file,CLAUDE.md0576921fb31becf8f512e8afec22098bsize=2712date=2026-09-19T18:20:56
 file,DEVKIT-GUIDE.md761a49f497137f63de19a963e8392dcfsize=20616date=2026-09-21T14:24:00
-file,GHOST.mdd013fde1b2c2e07a6b069c1c712ef7b8size=7769date=2026-09-22T06:59:32
+file,GHOST.mda4f8adfca036a18c2f540fa6e452aa31size=8444date=2026-09-22T11:40:23
 file,README.mdeaaba054ced30f24d77d386662600b36size=4487date=2026-09-20T07:18:36
 file,delete.txtafcd9efb3b99bca53a7f40dae85ced1bsize=94date=2026-09-20T06:55:37
 file,install.txte58e476ee748c865082fbf868eab0b51size=142date=2026-09-21T07:26:48
@@ -89,6 +89,7 @@ file,tools/build-nar.ps10c8f1a90f15fd6cf20cb4ead17d68f60size=11548date=2026-0
 file,tools/check-dic.ps16c8815262d6997560bded59d8b52f0d3size=2349date=2026-09-19T18:20:57
 file,tools/check-shell.ps140f8457069548fae69394c3052747426size=3787date=2026-09-19T18:20:57
 file,tools/check.ps1c397156f69cb7f473547602aedfb8152size=1417date=2026-09-19T18:20:57
+file,tools/claudia-updates.ps17221be9b3d216edeff64a6d9c3ca8dc3size=3334date=2026-09-22T11:40:00
 file,tools/devkit.json325762587340190123a3177bb0d69bf8size=704date=2026-09-19T18:20:57
 file,tools/devkit.lock.json3cf8b837bd60ff954679b0290fd1a041size=5240date=2026-09-22T06:27:45
 file,tools/devkit.narignore71dd372ef45f5ced87f0c1226b85f205size=947date=2026-09-19T18:20:57

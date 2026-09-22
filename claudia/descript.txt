@@ -5,6 +5,7 @@ name,クローディア
 craftman,ponapalt&claudia
 craftmanw,ponapalt&claudia
 craftmanurl,https://github.com/ponapalt/claudia
+homeurl,https://raw.githubusercontent.com/ponapalt/claudia/main/claudia/
 
 readme,readme.txt
 readme.charset,UTF-8
