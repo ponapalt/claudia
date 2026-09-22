@@ -485,6 +485,8 @@ CC.Start
 	_tags = ''
 
 	CC.Reset
+	//---- 起動したときの通知領域のアイコンは、descript.txt の icon（クローディア）
+	cctrayicon = 'claudia'
 	if STRLEN(_dir) == 0 {
 		return ''
 	}
@@ -497,6 +499,77 @@ CC.Start
 	ccadded     = 0
 	ccaddedfile = ''
 	_tags
+}
+
+//------------------------------------------------------------------------------
+//通知領域のアイコン
+//返事待ち（質問、ツールの実行の許可、計画の承認）のセッションが 1 つでもあれば
+//アンソニー（icon_anthony.ico）、無ければクローディア（icon.ico）にする
+//  cctrayicon  今出しているアイコン（claudia / anthony）。CC.Reset では触らない
+//              （セッションが全部終わったときにも CC.Reset が呼ばれるため）
+//------------------------------------------------------------------------------
+CC.TrayIconWanted
+{
+	_list = CC.Scan
+	_want = 'claudia'
+	_i    = 0
+	_r    = IARRAY
+
+	for _i = 0 ; _i < ARRAYSIZE(_list) ; _i++ {
+		_r = SPLIT(_list[_i], '|#|')
+		if _r[0] == 'waiting' && _r[5] == 'interactive' {
+			_want = 'anthony'
+			break
+		}
+	}
+	_want
+}
+
+//---- アイコンを変えるタグ。今と同じなら空文字列
+CC.TrayIconTag
+{
+	_want = CC.TrayIconWanted
+	_tag  = ''
+
+	if _want != cctrayicon {
+		cctrayicon = _want
+		if _want == 'anthony' {
+			_tag = '\![set,tasktrayicon,icon_anthony.ico]'
+		}
+		else {
+			_tag = '\![set,tasktrayicon,icon.ico]'
+		}
+	}
+	_tag
+}
+
+//---- 今どちらのアイコンか分からないとき（見張りを立て直したあと）に、必ずタグを返す
+CC.TrayIconSync
+{
+	cctrayicon = ''
+	CC.TrayIconTag
+}
+
+//------------------------------------------------------------------------------
+//見張りの通知で返すスクリプトに、アイコンを変えるタグを添える
+//話すことがないときは、先頭に \C を付けてバルーンの文字を消さないようにする
+//  _argv[0] 返すつもりのスクリプト（空でもよい）
+//------------------------------------------------------------------------------
+CC.WithTrayIcon
+{
+	_script = _argv[0]
+	_tag    = CC.TrayIconTag
+
+	if STRLEN(_tag) == 0 {
+		return _script
+	}
+	if STRLEN(_script) == 0 {
+		return '\C' + _tag + '\e'
+	}
+	if SUBSTR(_script, 0, 2) == '\C' {
+		return '\C' + _tag + SUBSTR(_script, 2, STRLEN(_script))
+	}
+	_tag + _script
 }
 
 //------------------------------------------------------------------------------
@@ -530,8 +603,14 @@ CC.TalkOK
 //
 //ここでは各ファイルの見張りを立て直すだけ。話すことがないときは、先頭に \C を付けて
 //バルーンの文字を消さないようにする
+//セッションが増えたり減ったりすると返事待ちの数も変わるので、アイコンも合わせる
 //------------------------------------------------------------------------------
 OnClaudeCodeDir
+{
+	CC.WithTrayIcon(CC.DirChanged)
+}
+
+CC.DirChanged
 {
 	_tags = ''
 	_talk = ''
@@ -566,7 +645,7 @@ OnClaudeCodeDir
 //------------------------------------------------------------------------------
 OnClaudeCodeFile
 {
-	CC.NoticeFile(reference[1], reference[2])
+	CC.WithTrayIcon(CC.NoticeFile(reference[1], reference[2]))
 }
 
 //------------------------------------------------------------------------------
@@ -817,8 +896,14 @@ CC.BootTimer
 //起動したときに、すでに返事待ちのセッションがあれば、リマインダと同じように
 //ベルを鳴らして知らせ、そこから 5 分ごとのリマインダを数え始める
 //返事待ちが複数あれば呼び名を並べる。何を待たれているかは最初の 1 件だけ
+//通知領域のアイコンも、起動時のクローディアから今の状態に合わせる
 //------------------------------------------------------------------------------
 OnClaudeCodeBootCheck
+{
+	CC.WithTrayIcon(CC.BootCheck)
+}
+
+CC.BootCheck
 {
 	_now     = GETSECCOUNT
 	_list    = IARRAY

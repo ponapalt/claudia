@@ -36,7 +36,8 @@ ghost/master/cc_bell2.wav938253249fd86d9534c1d66ca4920ffcsize=352844date=2026
 ghost/master/cc_done.wavc811517abea92b29816cb1929830f4bfsize=220544date=2026-09-22T12:39:25
 ghost/master/cc_perm.wavfcb0f84efa1d479fa74310c372507575size=141164date=2026-09-22T15:45:18
 ghost/master/descript.txt17d56609e820de2e0962d718daa8ecaasize=369date=2026-09-22T15:52:17
-ghost/master/icon.icoc70d178fa76727c1858bbe0c34867c8dsize=94409date=2026-09-22T07:06:50
+ghost/master/icon.ico9d0003f7739fc20a360ad8e87c035fc0size=97925date=2026-09-22T16:01:53
+ghost/master/icon_anthony.ico364ecf8a67b24a747dce147e613a89d2size=70543date=2026-09-22T16:00:37
 ghost/master/system_config.txt3965602fadd8acb2ee46c0310704c3e1size=682date=2026-09-19T18:20:56
 ghost/master/yaya.dll5a4ff00906859d7124fbe1c8aacecdf8size=909312date=2026-09-19T18:20:56
 ghost/master/yaya.txtc720df5cb99a1e84891b871c99a712absize=1993date=2026-09-19T18:20:56
@@ -46,11 +47,11 @@ ghost/master/dic/emerg/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=55
 ghost/master/dic/normal/yaya_aitalk.dic1dfcfce0bec4fee3ddb42e625a5b33ebsize=18542date=2026-09-22T15:10:39
 ghost/master/dic/normal/yaya_bootend.dic21d9603b7a0af6f9abe6c84412fd1424size=9845date=2026-09-22T14:37:18
 ghost/master/dic/normal/yaya_change.dicf3ef782708ded6a21af1d0019017a8basize=11170date=2026-09-22T07:28:29
-ghost/master/dic/normal/yaya_claudecode.dic43384e41b099f61a22540b196bf08e93size=42781date=2026-09-22T15:45:54
+ghost/master/dic/normal/yaya_claudecode.dic0f9998a945f5cab4e5c32dbac37e21f1size=45335date=2026-09-22T16:01:07
 ghost/master/dic/normal/yaya_communicate.dic69113c27236708afa2b21744cf5c5cd3size=4409date=2026-09-19T18:20:56
 ghost/master/dic/normal/yaya_etc.dic9b02872ab7f19929f8572b74f5894b18size=28236date=2026-09-22T07:28:31
 ghost/master/dic/normal/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
-ghost/master/dic/normal/yaya_menu.dicdd28de3b5677fab4eda6aec6535f04a8size=10173date=2026-09-22T12:40:26
+ghost/master/dic/normal/yaya_menu.dic39743b35fd8b9dcb1be28c4fc239468fsize=10194date=2026-09-22T16:01:08
 ghost/master/dic/normal/yaya_mouse.dic8bbec37c47a4546523642873a45c2d29size=7656date=2026-09-22T15:52:22
 ghost/master/dic/normal/yaya_string.dic0dcacb233492294865ece8deee552d81size=6338date=2026-09-22T15:52:38
 ghost/master/dic/normal/yaya_tmpl_util.dic070029bec9980ceb330526cef6362661size=9230date=2026-09-19T18:20:56

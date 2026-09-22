@@ -272,6 +272,8 @@ Menu_CCWATCH
 {
 	CC.Start
 	--
+	CC.TrayIconSync
+	--
 	'\0\s[0]見張りを立て直しましたわ。\w8\1つつがなく。\e'
 }
 
