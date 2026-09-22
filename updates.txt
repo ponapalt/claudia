@@ -20,7 +20,7 @@ file,ghost/master/yaya.txtc720df5cb99a1e84891b871c99a712absize=1993date=2026-
 file,ghost/master/yaya_emerg.txtd9ee78e2068ff80d809325bd4fa8228bsize=1055date=2026-09-19T18:20:56
 file,ghost/master/dic/emerg/yaya_emerg_dic.dic3f77010b4c5b819a9709f0277a144560size=689date=2026-09-19T18:20:56
 file,ghost/master/dic/emerg/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
-file,ghost/master/dic/normal/yaya_aitalk.dic1dfcfce0bec4fee3ddb42e625a5b33ebsize=18542date=2026-09-22T15:10:39
+file,ghost/master/dic/normal/yaya_aitalk.dic3e9905ff4fa4fec6b33d5d7abb8900c6size=19222date=2026-09-23T08:19:01
 file,ghost/master/dic/normal/yaya_bootend.dic21d9603b7a0af6f9abe6c84412fd1424size=9845date=2026-09-22T14:37:18
 file,ghost/master/dic/normal/yaya_change.dicf3ef782708ded6a21af1d0019017a8basize=11170date=2026-09-22T07:28:29
 file,ghost/master/dic/normal/yaya_claudecode.dic0f9998a945f5cab4e5c32dbac37e21f1size=45335date=2026-09-22T16:01:07
@@ -28,7 +28,7 @@ file,ghost/master/dic/normal/yaya_communicate.dic69113c27236708afa2b21744cf5c5c
 file,ghost/master/dic/normal/yaya_etc.dic9b02872ab7f19929f8572b74f5894b18size=28236date=2026-09-22T07:28:31
 file,ghost/master/dic/normal/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
 file,ghost/master/dic/normal/yaya_menu.dic39743b35fd8b9dcb1be28c4fc239468fsize=10194date=2026-09-22T16:01:08
-file,ghost/master/dic/normal/yaya_mouse.dic8bbec37c47a4546523642873a45c2d29size=7656date=2026-09-22T15:52:22
+file,ghost/master/dic/normal/yaya_mouse.dic2af4ca8ae27da58c61142c8d1fd08eccsize=10761date=2026-09-23T08:52:36
 file,ghost/master/dic/normal/yaya_string.dic0dcacb233492294865ece8deee552d81size=6338date=2026-09-22T15:52:38
 file,ghost/master/dic/normal/yaya_tmpl_util.dic070029bec9980ceb330526cef6362661size=9230date=2026-09-19T18:20:56
 file,ghost/master/dic/normal/yaya_word.dic57eec5cb910e66514873467521305439size=1128date=2026-09-19T18:20:56
@@ -59,11 +59,11 @@ file,shell/master/surface10.png9b03c699141f600486bc67ef20069cb5size=52364date
 file,shell/master/surface1000.pngbd0480bb9ea9ff5586f603e2acec98dasize=12295date=2026-09-20T06:41:56
 file,shell/master/surface1001.pngdcc677a8960d0da185fa1cace9e01cd2size=13057date=2026-09-20T06:41:57
 file,shell/master/surface19.pngcf65705ef656cfa671eec7871e11d2b8size=50001date=2026-09-22T06:58:37
-file,shell/master/surface2.pngf33df1b291b74d5388b40ced19d1f51bsize=187271date=2026-09-19T18:20:56
+file,shell/master/surface2.png593262750597c60d2ab6b48547cf1531size=183509date=2026-09-23T08:31:22
 file,shell/master/surface25.png3355dbc66532950f913210b187663e0asize=187065date=2026-09-19T18:20:56
-file,shell/master/surface29.png2321094cb8d9fd98558abae2cbd68666size=178858date=2026-09-22T06:58:36
-file,shell/master/surface4.pngf27d6d8740b5364c35950f77c31ca315size=175634date=2026-09-19T18:20:56
-file,shell/master/surface5.pngb31eca7cc579f6260defeec19bec8319size=184659date=2026-09-19T18:20:56
+file,shell/master/surface29.png726fccb5d2aac7e6e20420ba9aff68b9size=198581date=2026-09-23T08:33:21
+file,shell/master/surface4.pngedb1e8b3e8a8955bd333412cb0d4d9c2size=175765date=2026-09-23T08:31:22
+file,shell/master/surface5.pnged9c0b14b131940ba3e867a1e44327f0size=184553date=2026-09-23T08:31:22
 file,shell/master/surface7.png295033cb896150d904e49762148c6d5esize=187847date=2026-09-19T18:20:57
-file,shell/master/surfaces.txt765fa1df29425cec2dc9ff1dc7b0221dsize=2668date=2026-09-22T07:00:32
+file,shell/master/surfaces.txt9149d6b9b6e5d4df00908378fa5924f9size=4917date=2026-09-23T08:52:10
 file,shell/master/surfacetable.txtcb0ee7ea890a5c0971cfa46a62988be1size=344date=2026-09-22T06:58:45
