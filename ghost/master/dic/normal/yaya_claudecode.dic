@@ -624,10 +624,10 @@ CC.NoticeFile
 		when 'idle' {
 			//---- 作業が終わった。ただし短い受け答えのたびに騒ぐとうるさいので、
 			//---- 同じセッションがしばらく考え込んでいたときだけ労う
-			//---- 完了音は話さないときも鳴らす。メニューの「設定」で止められる（ccdoneoff）
+			//---- 完了音は話さないときも、15 秒以上かかっていれば鳴らす。メニューの「設定」で止められる（ccdoneoff）
 			_busyfor = (_at - ccbusyat) / 1000
-			if _before == 'busy' && ccbusyid == _id && ccbusyat > 0 && _busyfor >= 90 {
-				if CC.TalkOK(120) {
+			if _before == 'busy' && ccbusyid == _id && ccbusyat > 0 && _busyfor >= 15 {
+				if _busyfor >= 90 && CC.TalkOK(120) {
 					_talk = CC.TalkDone(_busyfor)
 				}
 				if ccdoneoff != 1 {
