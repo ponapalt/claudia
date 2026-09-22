@@ -35,7 +35,7 @@ ghost/master/cc_bell1.wavb1555d445155f6cdae02ce4aa5dd9552size=308744date=2026
 ghost/master/cc_bell2.wav938253249fd86d9534c1d66ca4920ffcsize=352844date=2026-09-22T12:24:41
 ghost/master/cc_done.wavc811517abea92b29816cb1929830f4bfsize=220544date=2026-09-22T12:39:25
 ghost/master/cc_perm.wavfcb0f84efa1d479fa74310c372507575size=141164date=2026-09-22T15:45:18
-ghost/master/descript.txt6da441bffadfbf59600b50c184b153c5size=964date=2026-09-22T07:13:26
+ghost/master/descript.txt17d56609e820de2e0962d718daa8ecaasize=369date=2026-09-22T15:52:17
 ghost/master/icon.icoc70d178fa76727c1858bbe0c34867c8dsize=94409date=2026-09-22T07:06:50
 ghost/master/system_config.txt3965602fadd8acb2ee46c0310704c3e1size=682date=2026-09-19T18:20:56
 ghost/master/yaya.dll5a4ff00906859d7124fbe1c8aacecdf8size=909312date=2026-09-19T18:20:56
@@ -51,8 +51,8 @@ ghost/master/dic/normal/yaya_communicate.dic69113c27236708afa2b21744cf5c5cd3si
 ghost/master/dic/normal/yaya_etc.dic9b02872ab7f19929f8572b74f5894b18size=28236date=2026-09-22T07:28:31
 ghost/master/dic/normal/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
 ghost/master/dic/normal/yaya_menu.dicdd28de3b5677fab4eda6aec6535f04a8size=10173date=2026-09-22T12:40:26
-ghost/master/dic/normal/yaya_mouse.dic7ceb0ef040499d8ec22f699f8fa4a4efsize=7425date=2026-09-22T06:58:55
-ghost/master/dic/normal/yaya_string.dic6bfb0ce9e6132280f2f230f2e6867e3bsize=3994date=2026-09-19T18:20:56
+ghost/master/dic/normal/yaya_mouse.dic8bbec37c47a4546523642873a45c2d29size=7656date=2026-09-22T15:52:22
+ghost/master/dic/normal/yaya_string.dic0dcacb233492294865ece8deee552d81size=6338date=2026-09-22T15:52:38
 ghost/master/dic/normal/yaya_tmpl_util.dic070029bec9980ceb330526cef6362661size=9230date=2026-09-19T18:20:56
 ghost/master/dic/normal/yaya_word.dic57eec5cb910e66514873467521305439size=1128date=2026-09-19T18:20:56
 ghost/master/dic/system/_loading_order.txtd2a7d2ad20413596ee9aba0ebdb5543csize=39date=2026-09-19T18:20:56
@@ -68,9 +68,12 @@ ghost/master/dic/system/yaya_base/config.dicd07874f4b1ba03ba111df8f2fa3cd6dbsi
 ghost/master/dic/system/yaya_base/lint.dic1cf05026921eac31d2c89d225cefc2cesize=21118date=2026-09-19T18:20:56
 ghost/master/dic/system/yaya_base/optional.dicff4da728a656a8aa6a38939e654c51f2size=9953date=2026-09-19T18:20:56
 ghost/master/dic/system/yaya_base/shiori3.dic50569aecd921bc28c40b0142591b472dsize=57034date=2026-09-19T18:20:56
-ghost/master/menu/menu_background.pngb0555d6fdbc9f5a363e0a9dc1b5625cdsize=18805date=2026-09-22T07:13:27
-ghost/master/menu/menu_foreground.png3374dd7e3d73299951ff39cea3784d1asize=22769date=2026-09-22T07:13:27
-ghost/master/menu/menu_sidebar.png22cef6564d09043e1533a3e17e10f7a7size=2610date=2026-09-22T07:13:27
+ghost/master/menu/menu_anthony_background.pngd1eec07c44680107b7c9a3eab2550275size=18709date=2026-09-22T15:52:07
+ghost/master/menu/menu_anthony_foreground.png9fb45d3d820c6a435b419f9ec2877278size=19411date=2026-09-22T15:52:07
+ghost/master/menu/menu_anthony_sidebar.pngb0108ac090a3f4a9c3490d0c19ca7a5bsize=2298date=2026-09-22T15:52:07
+ghost/master/menu/menu_background.png738969624b8240aec8beb726d6c41c43size=28134date=2026-09-22T15:52:03
+ghost/master/menu/menu_foreground.png202de2c15dd028d704cca1363271fbe1size=30058date=2026-09-22T15:52:03
+ghost/master/menu/menu_sidebar.pngc443939e7294e12f411bf1f1cd5bca35size=2645date=2026-09-22T15:52:07
 shell/master/anthony_eyes11.png1168e4258d5d8f5a216ca1b5b5ef608csize=5990date=2026-09-20T06:51:23
 shell/master/descript.txt3b61c03d995696ae13520d0e6cafbc08size=506date=2026-09-21T07:31:51
 shell/master/surface0.pnga3380cf5ba6b15ce938f29ba59cab9adsize=191862date=2026-09-19T18:20:56

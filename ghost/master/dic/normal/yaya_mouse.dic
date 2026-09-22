@@ -161,6 +161,13 @@ DragEnd1 : nonoverlap
 //変更の必要はありません。
 //******************************************************************************
 
+OnMouseDown
+{
+	//右クリックメニューの見た目を切り替えるため、最後に押されたキャラを覚えておく
+	//（yaya_string.dic の On_menu.*）。何も話さない。
+	menuscope = TOINT(reference[3])
+}
+
 OnMouseMove
 {
 	AYATEMPLATE.MouseMoveWheelFunc(0,50,'MouseMove')

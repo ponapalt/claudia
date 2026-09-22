@@ -94,6 +94,83 @@ On_vanishbutton.visible
 	'1'
 }
 
+//******************************************************************************
+//オーナードローメニュー
+//右クリックされたキャラ（yaya_mouse.dic の OnMouseDown が menuscope に覚える）に
+//合わせて、クローディア用とアンソニー用の画像と色を返し分ける。
+//画像は work/menu/make-menu.ps1 で作る。配置（alignment）は descript.txt にある。
+//******************************************************************************
+On_menu.background.bitmap.filename
+{
+	MenuFile('background')
+}
+
+On_menu.foreground.bitmap.filename
+{
+	MenuFile('foreground')
+}
+
+On_menu.sidebar.bitmap.filename
+{
+	MenuFile('sidebar')
+}
+
+On_menu.background.font.color.r { MenuColor('background', 0) }
+On_menu.background.font.color.g { MenuColor('background', 1) }
+On_menu.background.font.color.b { MenuColor('background', 2) }
+
+On_menu.foreground.font.color.r { MenuColor('foreground', 0) }
+On_menu.foreground.font.color.g { MenuColor('foreground', 1) }
+On_menu.foreground.font.color.b { MenuColor('foreground', 2) }
+
+On_menu.disable.font.color.r { MenuColor('disable', 0) }
+On_menu.disable.font.color.g { MenuColor('disable', 1) }
+On_menu.disable.font.color.b { MenuColor('disable', 2) }
+
+On_menu.separator.color.r { MenuColor('separator', 0) }
+On_menu.separator.color.g { MenuColor('separator', 1) }
+On_menu.separator.color.b { MenuColor('separator', 2) }
+
+On_menu.frame.color.r { MenuColor('frame', 0) }
+On_menu.frame.color.g { MenuColor('frame', 1) }
+On_menu.frame.color.b { MenuColor('frame', 2) }
+
+MenuFile
+{
+	//_argv[0]: background / foreground / sidebar
+	if menuscope == 1 {
+		'menu/menu_anthony_' + _argv[0] + '.png'
+	}
+	else {
+		'menu/menu_' + _argv[0] + '.png'
+	}
+}
+
+MenuColor
+{
+	//_argv[0]: 項目名、_argv[1]: 0=赤 1=緑 2=青
+	_rgb = IARRAY
+	if menuscope == 1 {
+		case _argv[0] {
+			when 'background' { _rgb = (38, 42, 66) }
+			when 'foreground' { _rgb = (36, 56, 130) }
+			when 'disable' { _rgb = (150, 156, 178) }
+			when 'separator' { _rgb = (197, 150, 78) }
+			when 'frame' { _rgb = (49, 49, 62) }
+		}
+	}
+	else {
+		case _argv[0] {
+			when 'background' { _rgb = (74, 43, 30) }
+			when 'foreground' { _rgb = (120, 40, 20) }
+			when 'disable' { _rgb = (184, 164, 140) }
+			when 'separator' { _rgb = (197, 150, 78) }
+			when 'frame' { _rgb = (160, 74, 38) }
+		}
+	}
+	_rgb[_argv[1]]
+}
+
 
 //******************************************************************************
 //おすすめサイトのリストを書きやすくするためのコア
