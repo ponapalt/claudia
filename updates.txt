@@ -9,7 +9,7 @@ file,AGENTS.md5f0ce52299ec3d3a3f623f763eea1f0bsize=15252date=2026-09-19T18:20
 file,CLAUDE.md0576921fb31becf8f512e8afec22098bsize=2712date=2026-09-19T18:20:56
 file,DEVKIT-GUIDE.md761a49f497137f63de19a963e8392dcfsize=20616date=2026-09-21T14:24:00
 file,GHOST.mda4f8adfca036a18c2f540fa6e452aa31size=8444date=2026-09-22T11:40:23
-file,README.mdeaaba054ced30f24d77d386662600b36size=4487date=2026-09-20T07:18:36
+file,README.mdb77544a31d763b7fc524b5fe7e60f243size=4804date=2026-09-22T16:08:00
 file,delete.txtafcd9efb3b99bca53a7f40dae85ced1bsize=94date=2026-09-20T06:55:37
 file,install.txte58e476ee748c865082fbf868eab0b51size=142date=2026-09-21T07:26:48
 file,readme-aya.txtca7ca11cf43709352523e72259116a8asize=588date=2026-09-19T18:20:56
