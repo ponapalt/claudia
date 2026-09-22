@@ -39,8 +39,8 @@ wordwrappoint.x,-18
 wordwrappoint.y,0
 
 //--- フォント ---
-// 明朝体で令嬢の手紙らしく。ゴシックにしたいときは font.name を差し替える
-font.name,游明朝,Yu Mincho,ヒラギノ明朝 ProN W3,MS 明朝
+// 明朝体で令嬢の手紙らしく。文字の幅がそろう等幅フォントにする（BIZ UD明朝 は Windows 10 以降に標準で入っている）
+font.name,BIZ UD明朝 Medium,BIZ UDMincho Medium,ＭＳ 明朝,MS Mincho
 font.height,15
 
 font.color.r,74
@@ -150,7 +150,7 @@ communicatebox.x,10
 communicatebox.y,17
 communicatebox.width,362
 communicatebox.height,24
-communicatebox.font.name,游ゴシック,Yu Gothic,メイリオ,MS ゴシック
+communicatebox.font.name,BIZ UDゴシック,BIZ UDGothic,ＭＳ ゴシック,MS Gothic
 communicatebox.font.color.r,74
 communicatebox.font.color.g,43
 communicatebox.font.color.b,30

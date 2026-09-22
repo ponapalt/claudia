@@ -21,7 +21,7 @@ $sampleK = @(
     'それでございます。'
 )
 
-$fontName = '游明朝'
+$fontName = 'BIZ UD明朝 Medium'
 # font.height は descript.txt に合わせる
 $fontHeight = 13.0
 $d = Join-Path $Dir 'descript.txt'
