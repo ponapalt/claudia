@@ -211,6 +211,41 @@ CC.ProjectName
 	_name
 }
 
+//------------------------------------------------------------------------------
+//お知らせに添えるセッションの呼び名。メニューの一覧に出るのと同じ name（claudia-c9 など）
+//name が無ければ作業フォルダの名前にする
+//  _argv[0] name / _argv[1] cwd（JSON のまま）
+//------------------------------------------------------------------------------
+CC.Label
+{
+	_label = _argv[0]
+	if STRLEN(_label) == 0 {
+		_label = CC.ProjectName(_argv[1])
+	}
+	//---- さくらスクリプトや埋め込みとして解釈されそうな文字を外す
+	RE_REPLACE(_label, '[%\[\]\\]', '')
+}
+
+//------------------------------------------------------------------------------
+//トークの最初の \0\s[番号] の後ろに、どのセッションの話かを 1 行差し込む
+//  _argv[0] トーク / _argv[1] CC.Label の呼び名。空ならトークをそのまま返す
+//------------------------------------------------------------------------------
+CC.WithLabel
+{
+	_talk = _argv[0]
+	_pos  = STRSTR(_talk, '\0\s[', 0)
+	_end  = -1
+
+	if STRLEN(_argv[1]) == 0 || _pos < 0 {
+		return _talk
+	}
+	_end = STRSTR(_talk, ']', _pos)
+	if _end < 0 {
+		return _talk
+	}
+	SUBSTR(_talk, 0, _end + 1) + '【' + _argv[1] + '】\w9\n' + SUBSTR(_talk, _end + 1, STRLEN(_talk))
+}
+
 
 //******************************************************************************
 //返事待ちの中身（何を待たれているか）
@@ -345,10 +380,12 @@ CC.Pending
 //  ccstatus   その状態（busy / waiting / idle）
 //  ccbusyid   busy になったのがどのセッションか
 //  ccbusyat   busy になった時刻（Unix ミリ秒）
+//  ccbusylabel busy になったセッションの呼び名（CC.Label）
 //  cctalkat   最後に Claude Code の話をした時刻（Unix 秒）
 //  ccbusytold 長考の話をもうしたか
 //  ccwatched  今ファイルの見張りを立てているファイル名（前後をカンマで挟む）
 //  ccadded    直近の見張り立て直しで新しく増えたセッションの数
+//  ccaddedfile そのうち最後に増えたセッションのファイル名
 //  ccremindat 返事待ちのベルを最後に鳴らした時刻（Unix 秒）。0 ならリマインダなし
 //  ccremindn  そのあとリマインダを鳴らした回数
 //------------------------------------------------------------------------------
@@ -358,10 +395,12 @@ CC.Reset
 	ccstatus   = ''
 	ccbusyid   = ''
 	ccbusyat   = 0
+	ccbusylabel = ''
 	cctalkat   = 0
 	ccbusytold = 0
 	ccwatched  = ','
 	ccadded    = 0
+	ccaddedfile = ''
 	ccremindat = 0
 	ccremindn  = 0
 }
@@ -380,6 +419,7 @@ CC.Prime
 		ccstatus  = _r[0]
 		ccbusyid  = _r[6]
 		ccbusyat  = TOINT(_r[4])
+		ccbusylabel = CC.Label(_r[1], _r[2])
 	}
 }
 
@@ -398,7 +438,8 @@ CC.SyncWatches
 	_i     = 0
 	_name  = ''
 
-	ccadded = 0
+	ccadded     = 0
+	ccaddedfile = ''
 	if STRLEN(_dir) == 0 {
 		return ''
 	}
@@ -414,7 +455,8 @@ CC.SyncWatches
 		if STRSTR(ccwatched, ',' + _name + ',', 0) < 0 {
 			_tags  += '\![execute,filewatch,' + _dir + '/' + _name + /
 			          ',--async=OnClaudeCodeFile,--debounce=200]'
-			ccadded += 1
+			ccadded    += 1
+			ccaddedfile = _name
 		}
 	}
 
@@ -452,7 +494,8 @@ CC.Start
 	//---- 続けて、今あるセッションのファイルを 1 つずつ
 	_tags += CC.SyncWatches
 	//---- 起動時の分は数に入れない（すでに動いていたセッションで騒がないため）
-	ccadded = 0
+	ccadded     = 0
+	ccaddedfile = ''
 	_tags
 }
 
@@ -492,6 +535,7 @@ OnClaudeCodeDir
 {
 	_tags = ''
 	_talk = ''
+	_json = ''
 
 	if reference[2] == 'deleted' {
 		return ''
@@ -506,7 +550,8 @@ OnClaudeCodeDir
 	//---- 起動時にすでに動いていた分は CC.Start が ccadded を 0 に戻すので、ここには来ない
 	if ccadded > 0 && CC.TalkOK(60) {
 		cctalkat = GETSECCOUNT
-		_talk    = CC.TalkNew
+		_json    = CC.ReadFile(CC.SessionDir + '/' + ccaddedfile)
+		_talk    = CC.WithLabel(CC.TalkNew, CC.Label(CC.Str(_json, 'name'), CC.Str(_json, 'cwd')))
 	}
 
 	if STRLEN(_talk) > 0 {
@@ -557,6 +602,7 @@ CC.NoticeFile
 	_pending = IARRAY
 	_talk    = ''
 	_sound   = ''
+	_label   = ''
 
 	//---- セッションが終わった
 	if _argv[1] == 'deleted' {
@@ -583,6 +629,7 @@ CC.NoticeFile
 	_waiting = CC.Str(_json, 'waitingFor')
 	_at      = CC.Num(_json, 'statusUpdatedAt')
 	_id      = CC.Str(_json, 'sessionId')
+	_label   = CC.Label(CC.Str(_json, 'name'), CC.Str(_json, 'cwd'))
 
 	//---- 同じセッションが同じ状態のままなら黙る
 	if _id == ccsession && _status == ccstatus {
@@ -598,6 +645,7 @@ CC.NoticeFile
 		ccbusyid   = _id
 		ccbusyat   = _at
 		ccbusytold = 0
+		ccbusylabel = _label
 	}
 
 	ccsession = _id
@@ -640,7 +688,7 @@ CC.NoticeFile
 	//---- 話したときだけ、話した時刻を覚える（音だけのときは数えない）
 	if STRLEN(_talk) > 0 {
 		cctalkat = GETSECCOUNT
-		return _sound + _talk
+		return _sound + CC.WithLabel(_talk, _label)
 	}
 	if STRLEN(_sound) > 0 {
 		return '\C' + _sound + '\e'
@@ -718,9 +766,66 @@ CC.Remind
 	}
 	_r       = SPLIT(_found, '|#|')
 	_pending = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
-	_talk    = CC.TalkRemind(ccremindn, _pending[1])
+	_talk    = CC.WithLabel(CC.TalkRemind(ccremindn, _pending[1]), CC.Label(_r[1], _r[2]))
 	cctalkat = _now
 	CC.BELL1 + _talk
+}
+
+//------------------------------------------------------------------------------
+//起動トークの最後に付けるタグ。話し終わって 5 秒たったら OnClaudeCodeBootCheck が来る
+//------------------------------------------------------------------------------
+CC.BootTimer
+{
+	'\![timerraise,5000,1,OnClaudeCodeBootCheck]'
+}
+
+//------------------------------------------------------------------------------
+//起動したときに、すでに返事待ちのセッションがあれば、リマインダと同じように
+//ベルを鳴らして知らせ、そこから 5 分ごとのリマインダを数え始める
+//返事待ちが複数あれば呼び名を並べる。何を待たれているかは最初の 1 件だけ
+//------------------------------------------------------------------------------
+OnClaudeCodeBootCheck
+{
+	_now     = GETSECCOUNT
+	_list    = IARRAY
+	_first   = ''
+	_labels  = ''
+	_i       = 0
+	_r       = IARRAY
+	_pending = IARRAY
+
+	if ccremindoff == 1 {
+		return ''
+	}
+	//---- 起動トークの間に返事待ちになったものは、もう知らせてリマインダも数えている
+	if GETTYPE(ccremindat) != 0 && ccremindat > 0 {
+		return ''
+	}
+
+	_list = CC.Scan
+	for _i = 0 ; _i < ARRAYSIZE(_list) ; _i++ {
+		_r = SPLIT(_list[_i], '|#|')
+		if _r[0] != 'waiting' || _r[5] != 'interactive' {
+			continue
+		}
+		if STRLEN(_first) == 0 {
+			_first = _list[_i]
+		}
+		else {
+			_labels += '、'
+		}
+		_labels += CC.Label(_r[1], _r[2])
+	}
+	if STRLEN(_first) == 0 {
+		return ''
+	}
+
+	ccremindat = _now
+	ccremindn  = 0
+	cctalkat   = _now
+	_r       = SPLIT(_first, '|#|')
+	_pending = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
+	CC.BELL1 + CC.WithLabel(CC.TalkBootWaiting(_pending[1]), _labels)
 }
 
 //------------------------------------------------------------------------------
@@ -738,7 +843,7 @@ CC.LongBusy
 	if _busyfor >= 600 && CC.TalkOK(120) {
 		ccbusytold = 1
 		cctalkat   = GETSECCOUNT
-		_talk      = CC.TalkLong
+		_talk      = CC.WithLabel(CC.TalkLong, ccbusylabel)
 	}
 	_talk
 }
@@ -910,6 +1015,22 @@ CC.TalkRemind
 			'\u\s[10]\0\s[6]15分。\w9\nこれ以上はお呼びしませんわよ。\w8\1お戻りになりましたら、\w9\n端末をご覧くださいませ。\e'
 			'\u\s[10]\0\s[4]お返事がありませんわね。\w9\nお出かけかしら。\w8\1鐘はこれで最後にいたします。\e'
 		}
+	}
+}
+
+//---- 起動したら、返事待ちのまま放ってあった
+//  _argv[0] 待たれている中身（CC.Pending）
+CC.TalkBootWaiting
+{
+	_detail = _argv[0]
+
+	if STRLEN(_detail) > 0 {
+		"\u\s[10]\0\s[7]「%(_detail)」の件、\w9\n放ったままでしてよ。\w8\1お留守の間から、\w9\nお待ちでございます。\e"
+		"\u\s[10]\0\s[26]あら、来て早々ですけれど、\w9\n「%(_detail)」ですって。\w8\1ご返事をお待ちでございます。\e"
+	}
+	else {
+		'\u\s[10]\0\s[7]落ち着く前に申しますけれど、\w9\n返事待ちのままでしてよ。\w8\1端末でお待ちでございます。\e'
+		'\u\s[10]\0\s[26]あら、お返事をしないまま\w9\n出ていらしたのね。\w8\1端末をご覧くださいませ。\e'
 	}
 }
 
