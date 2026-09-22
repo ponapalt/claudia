@@ -666,7 +666,7 @@ CC.NoticeFile
 				_talk    = CC.TalkWaiting(_waiting, _pending[0], _pending[1])
 			}
 			if ccbelloff != 1 {
-				_sound = CC.BELL2
+				_sound = CC.WaitSound(_waiting, 2)
 			}
 		}
 		when 'idle' {
@@ -712,6 +712,40 @@ CC.BELL2
 CC.BELL1
 {
 	'\![sound,play,cc_bell1.wav]'
+}
+
+//---- ツールの実行の許可待ち（waitingFor が permission prompt）の音。ベルより短く軽い 3 音
+CC.PERM
+{
+	'\![sound,play,cc_perm.wav]'
+}
+
+//------------------------------------------------------------------------------
+//返事待ちで鳴らす音を選ぶ。許可待ちなら CC.PERM、それ以外はベル
+//  _argv[0] waitingFor / _argv[1] ベルの回数（2 なら CC.BELL2、それ以外は CC.BELL1）
+//何のツールで止まっているかは記録に書き出されないことがあるので、waitingFor だけで決める
+//（plan mode の計画の承認も permission prompt なので、こちらの音になる）
+//------------------------------------------------------------------------------
+CC.WaitSound
+{
+	_sound = CC.BELL1
+	if CC.IsPermission(_argv[0]) {
+		_sound = CC.PERM
+	}
+	elseif _argv[1] == 2 {
+		_sound = CC.BELL2
+	}
+	_sound
+}
+
+//---- waitingFor が許可待ちなら 1
+CC.IsPermission
+{
+	_is = 0
+	if STRSTR(_argv[0], 'permission', 0) >= 0 {
+		_is = 1
+	}
+	_is
 }
 
 //------------------------------------------------------------------------------
@@ -766,9 +800,9 @@ CC.Remind
 	}
 	_r       = SPLIT(_found, '|#|')
 	_pending = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
-	_talk    = CC.WithLabel(CC.TalkRemind(ccremindn, _pending[1]), CC.Label(_r[1], _r[2]))
+	_talk    = CC.WithLabel(CC.TalkRemind(ccremindn, _pending[1], CC.IsPermission(_r[3])), CC.Label(_r[1], _r[2]))
 	cctalkat = _now
-	CC.BELL1 + _talk
+	CC.WaitSound(_r[3], 1) + _talk
 }
 
 //------------------------------------------------------------------------------
@@ -825,7 +859,7 @@ OnClaudeCodeBootCheck
 	cctalkat   = _now
 	_r       = SPLIT(_first, '|#|')
 	_pending = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
-	CC.BELL1 + CC.WithLabel(CC.TalkBootWaiting(_pending[1]), _labels)
+	CC.WaitSound(_r[3], 1) + CC.WithLabel(CC.TalkBootWaiting(_pending[1]), _labels)
 }
 
 //------------------------------------------------------------------------------
@@ -993,10 +1027,14 @@ CC.TalkWaiting
 
 //---- 返事待ちを放っておかれている
 //  _argv[0] 何回目のリマインダか（1〜3）/ _argv[1] 待たれている中身（CC.Pending）
+//  _argv[2] 許可待ちなら 1（CC.IsPermission）
 CC.TalkRemind
 {
 	_detail = _argv[1]
 
+	if _argv[2] == 1 {
+		return CC.TalkRemindPermission(_argv[0], _detail)
+	}
 	case _argv[0] {
 		when 1 {
 			if STRLEN(_detail) > 0 {
@@ -1014,6 +1052,33 @@ CC.TalkRemind
 		others {
 			'\u\s[10]\0\s[6]15分。\w9\nこれ以上はお呼びしませんわよ。\w8\1お戻りになりましたら、\w9\n端末をご覧くださいませ。\e'
 			'\u\s[10]\0\s[4]お返事がありませんわね。\w9\nお出かけかしら。\w8\1鐘はこれで最後にいたします。\e'
+		}
+	}
+}
+
+//---- 許可待ちを放っておかれている
+//  _argv[0] 何回目のリマインダか（1〜3）/ _argv[1] 待たれている中身（CC.Pending）
+CC.TalkRemindPermission
+{
+	_detail = _argv[1]
+
+	case _argv[0] {
+		when 1 {
+			if STRLEN(_detail) > 0 {
+				"\u\s[10]\0\s[7]「%(_detail)」の許可、\w9\nまだ出していませんのね。\w8\1かれこれ5分、お伺いが立っております。\e"
+			}
+			else {
+				'\u\s[10]\0\s[7]許可をお待ちのまま、\w9\nもう5分ですわよ。\w8\1通すか止めるか、ご判断を。\e'
+				'\u\s[10]\0\s[26]あなた、お伺いを\w9\n放ってありましてよ。\w8\1端末で手を止めてお待ちでございます。\e'
+			}
+		}
+		when 2 {
+			'\u\s[10]\0\s[4]‥\w5‥\w5許可ひとつで10分も\w9\n止めておくおつもり？\w8\1先に進めず困っております。\e'
+			'\u\s[10]\0\s[7]10分ですわ。\w9\n判を押すだけでしてよ。\w8\1じっとお待ちでございます。\e'
+		}
+		others {
+			'\u\s[10]\0\s[6]15分。\w9\n許可待ちのまま、これ以上はお呼びしませんわ。\w8\1お戻りになりましたら、\w9\n端末をご覧くださいませ。\e'
+			'\u\s[10]\0\s[4]お返事がありませんわね。\w9\nお出かけかしら。\w8\1お伺いの鐘はこれで最後にいたします。\e'
 		}
 	}
 }
