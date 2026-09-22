@@ -556,6 +556,7 @@ CC.NoticeFile
 	_busyfor = 0
 	_pending = IARRAY
 	_talk    = ''
+	_sound   = ''
 
 	//---- セッションが終わった
 	if _argv[1] == 'deleted' {
@@ -617,34 +618,44 @@ CC.NoticeFile
 				_talk    = CC.TalkWaiting(_waiting, _pending[0], _pending[1])
 			}
 			if ccbelloff != 1 {
-				if STRLEN(_talk) > 0 {
-					_talk = CC.BELL2 + _talk
-				}
-				else {
-					_talk = '\C' + CC.BELL2 + '\e'
-				}
+				_sound = CC.BELL2
 			}
 		}
 		when 'idle' {
 			//---- 作業が終わった。ただし短い受け答えのたびに騒ぐとうるさいので、
 			//---- 同じセッションがしばらく考え込んでいたときだけ労う
+			//---- 完了音は話さないときも鳴らす。メニューの「設定」で止められる（ccdoneoff）
 			_busyfor = (_at - ccbusyat) / 1000
-			if _before == 'busy' && ccbusyid == _id && ccbusyat > 0 && /
-			   _busyfor >= 90 && CC.TalkOK(120) {
-				_talk = CC.TalkDone(_busyfor)
+			if _before == 'busy' && ccbusyid == _id && ccbusyat > 0 && _busyfor >= 90 {
+				if CC.TalkOK(120) {
+					_talk = CC.TalkDone(_busyfor)
+				}
+				if ccdoneoff != 1 {
+					_sound = CC.DONE
+				}
 			}
 		}
 	}
 
+	//---- 話したときだけ、話した時刻を覚える（音だけのときは数えない）
 	if STRLEN(_talk) > 0 {
 		cctalkat = GETSECCOUNT
+		return _sound + _talk
 	}
-	_talk
+	if STRLEN(_sound) > 0 {
+		return '\C' + _sound + '\e'
+	}
+	''
 }
 
 //------------------------------------------------------------------------------
-//ユーザーを呼ぶベル（ghost/master の WAV ファイル）
+//ユーザーを呼ぶベルと、作業が終わったときの完了音（ghost/master の WAV ファイル）
 //------------------------------------------------------------------------------
+CC.DONE
+{
+	'\![sound,play,cc_done.wav]'
+}
+
 CC.BELL2
 {
 	'\![sound,play,cc_bell2.wav]'

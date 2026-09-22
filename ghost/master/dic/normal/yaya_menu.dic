@@ -92,15 +92,20 @@ Menu_TALKINTERVAL
 
 //---- 設定
 //  ccbelloff   1 なら、Claude Code が返事を待ち始めたときのベルを鳴らさない
+//  ccdoneoff   1 なら、長くかかった作業が終わったときの完了音を鳴らさない
 //  ccremindoff 1 なら、返事待ちを放っておかれたときの 5 分ごとのリマインダを出さない
 //  どちらも初めは空（鳴らす）
 Menu_CONFIG
 {
 	_bell   = '鳴らす'
+	_done   = '鳴らす'
 	_remind = '出す'
 
 	if ccbelloff == 1 {
 		_bell = '鳴らさない'
+	}
+	if ccdoneoff == 1 {
+		_done = '鳴らさない'
 	}
 	if ccremindoff == 1 {
 		_remind = '出さない'
@@ -112,6 +117,8 @@ Menu_CONFIG
 	AYATEMPLATE.MenuItem("名前の呼び方を変えて","Menu_USERNAME")
 	--
 	AYATEMPLATE.MenuItem("Claude Code のベル：%(_bell)","Menu_CCBELL")
+	--
+	AYATEMPLATE.MenuItem("Claude Code の完了音：%(_done)","Menu_CCDONE")
 	--
 	AYATEMPLATE.MenuItem("Claude Code のリマインダ：%(_remind)","Menu_CCREMIND")
 	--
@@ -195,6 +202,21 @@ Menu_CCBELL
 	else {
 		ccbelloff = 1
 		'\u\s[10]\0\s[0]ベルは鳴らさないでおきますわ。\w9\n声だけでお知らせしますわね。\w8\1承知いたしました。'
+	}
+	--
+	CONFIG.AfterItems
+}
+
+//---- 完了音の切り替え
+Menu_CCDONE
+{
+	if ccdoneoff == 1 {
+		ccdoneoff = 0
+		'\![sound,play,cc_done.wav]\u\s[10]\0\s[25]長いお仕事が片付いたら、\w9\nそっとお知らせしますわ。\w8\1この音でございます。'
+	}
+	else {
+		ccdoneoff = 1
+		'\u\s[10]\0\s[0]終わったときの音は\w9\n鳴らさないでおきますわ。\w8\1承知いたしました。'
 	}
 	--
 	CONFIG.AfterItems
