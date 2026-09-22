@@ -349,6 +349,8 @@ CC.Pending
 //  ccbusytold 長考の話をもうしたか
 //  ccwatched  今ファイルの見張りを立てているファイル名（前後をカンマで挟む）
 //  ccadded    直近の見張り立て直しで新しく増えたセッションの数
+//  ccremindat 返事待ちのベルを最後に鳴らした時刻（Unix 秒）。0 ならリマインダなし
+//  ccremindn  そのあとリマインダを鳴らした回数
 //------------------------------------------------------------------------------
 CC.Reset
 {
@@ -360,6 +362,8 @@ CC.Reset
 	ccbusytold = 0
 	ccwatched  = ','
 	ccadded    = 0
+	ccremindat = 0
+	ccremindn  = 0
 }
 
 //------------------------------------------------------------------------------
@@ -601,9 +605,24 @@ CC.NoticeFile
 	case _status {
 		when 'waiting' {
 			//---- こちらの返事を待っている。Pets でいういちばん大事なところ
+			//---- ベルは話さないときも鳴らし、ここから 5 分ごとのリマインダを数え始める
+			//---- どちらもメニューの「設定」で止められる（ccbelloff / ccremindoff）
+			ccremindat = 0
+			ccremindn  = 0
+			if ccremindoff != 1 {
+				ccremindat = GETSECCOUNT
+			}
 			if CC.TalkOK(15) {
 				_pending = SPLIT(CC.Pending(CC.Str(_json, 'cwd'), _id), '|#|')
 				_talk    = CC.TalkWaiting(_waiting, _pending[0], _pending[1])
+			}
+			if ccbelloff != 1 {
+				if STRLEN(_talk) > 0 {
+					_talk = CC.BELL2 + _talk
+				}
+				else {
+					_talk = '\C' + CC.BELL2 + '\e'
+				}
 			}
 		}
 		when 'idle' {
@@ -621,6 +640,76 @@ CC.NoticeFile
 		cctalkat = GETSECCOUNT
 	}
 	_talk
+}
+
+//------------------------------------------------------------------------------
+//ユーザーを呼ぶベル（ghost/master の WAV ファイル）
+//------------------------------------------------------------------------------
+CC.BELL2
+{
+	'\![sound,play,cc_bell2.wav]'
+}
+
+CC.BELL1
+{
+	'\![sound,play,cc_bell1.wav]'
+}
+
+//------------------------------------------------------------------------------
+//返事待ちを放っておかれたときのリマインダ。OnSecondChange から 1 秒おきに呼ばれる
+//最後にベルを鳴らしてから 5 分たったら、まだ返事待ちのセッションがあるかを確かめて
+//ベルを 1 回鳴らす。3 回鳴らしたらやめる
+//ふだんは時刻を比べるだけで、セッションのファイルは読まない
+//------------------------------------------------------------------------------
+CC.Remind
+{
+	_now     = GETSECCOUNT
+	_list    = IARRAY
+	_found   = ''
+	_i       = 0
+	_r       = IARRAY
+	_pending = IARRAY
+	_talk    = ''
+
+	if GETTYPE(ccremindat) == 0 || ccremindat <= 0 || ccremindoff == 1 {
+		return ''
+	}
+	//---- 時計が巻き戻ったときは、そこから数え直す
+	if _now < ccremindat {
+		ccremindat = _now
+		return ''
+	}
+	if _now - ccremindat < 300 {
+		return ''
+	}
+
+	//---- まだ返事待ちのセッションがあるか
+	_list = CC.Scan
+	for _i = 0 ; _i < ARRAYSIZE(_list) ; _i++ {
+		_r = SPLIT(_list[_i], '|#|')
+		if _r[0] == 'waiting' && _r[5] == 'interactive' {
+			_found = _list[_i]
+			break
+		}
+	}
+	if STRLEN(_found) == 0 {
+		//---- もう返事をした
+		ccremindat = 0
+		ccremindn  = 0
+		return ''
+	}
+
+	ccremindn += 1
+	ccremindat = _now
+	if ccremindn >= 3 {
+		//---- これで最後
+		ccremindat = 0
+	}
+	_r       = SPLIT(_found, '|#|')
+	_pending = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
+	_talk    = CC.TalkRemind(ccremindn, _pending[1])
+	cctalkat = _now
+	CC.BELL1 + _talk
 }
 
 //------------------------------------------------------------------------------
@@ -782,6 +871,33 @@ CC.TalkWaiting
 			'\u\s[10]\0\s[7]許可をお待ちですわよ。\w9\n早くお決めなさいな。\w8\1端末に伺いが立っております。\e'
 			'\u\s[10]\0\s[4]待たされておりますわ。\w9\nよいのか悪いのか、はっきりなさい。\w8\1お返事を待っております。\e'
 			'\u\s[10]\0\s[26]あちらがお伺いを立てておりますわ。\w9\n通すも止めるも、あなた次第。\w8\1端末をご覧くださいませ。\e'
+		}
+	}
+}
+
+//---- 返事待ちを放っておかれている
+//  _argv[0] 何回目のリマインダか（1〜3）/ _argv[1] 待たれている中身（CC.Pending）
+CC.TalkRemind
+{
+	_detail = _argv[1]
+
+	case _argv[0] {
+		when 1 {
+			if STRLEN(_detail) > 0 {
+				"\u\s[10]\0\s[7]「%(_detail)」の件、\w9\nまだ放ってありましてよ。\w8\1かれこれ5分、お待ちでございます。\e"
+			}
+			else {
+				'\u\s[10]\0\s[7]まだお返事していませんのね。\w9\nもう5分ですわよ。\w8\1端末でお待ちでございます。\e'
+				'\u\s[10]\0\s[26]あなた、お忘れではなくて？\w9\n端末が呼んでおりますわ。\w8\1もう5分ほど経っております。\e'
+			}
+		}
+		when 2 {
+			'\u\s[10]\0\s[4]‥\w5‥\w5もう10分ですわ。\w9\nいつまで待たせるおつもり？\w8\1お忙しいのでございましょう。\e'
+			'\u\s[10]\0\s[7]10分も放っておくなんて、\w9\nあちらが気の毒ですわ。\w8\1じっと待っております。\e'
+		}
+		others {
+			'\u\s[10]\0\s[6]15分。\w9\nこれ以上はお呼びしませんわよ。\w8\1お戻りになりましたら、\w9\n端末をご覧くださいませ。\e'
+			'\u\s[10]\0\s[4]お返事がありませんわね。\w9\nお出かけかしら。\w8\1鐘はこれで最後にいたします。\e'
 		}
 	}
 }

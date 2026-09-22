@@ -20,14 +20,18 @@ OpenMenu
 	'\0\s[0]何かご用かしら？'
 	"\0\s[26]%(username)、わたくしに何の用ですの？"
 	'\0\s[0]手短にお願いしますわ。'
+	'\0\s[26]あら、わたくしに相談事かしら？'
+	'\0\s[7]また呼びましたの？\w9\n今度は何ですの。'
+	"\0\s[0]%(username)、ご用件をどうぞ。"
+	'\0\s[25]よろしくてよ、聞いて差し上げますわ。'
+	'\0\s[6]‥\w5‥\w5お茶の最中ですのに。\w9\nまあ、よろしいわ。'
+	'\u\s[10]\1お嬢様、お呼びでございます。\w8\0\s[0]わかっておりますわ。\w9\n何ですの？'
 	--
-	AYATEMPLATE.MenuItem("何か話して","Menu_AITALK",200)
+	AYATEMPLATE.MenuItem("何か話して","Menu_AITALK",150)
 	--
 	if ( STRLEN(AYATEMPLATE.LastTalk) > 0 ) {
 		AYATEMPLATE.MenuItem("さっきの話は？","Menu_LASTTALK")
 	}
-	--
-	AYATEMPLATE.MenuItem("しゃべる頻度を変えて","Menu_TALKINTERVAL")
 	--
 	AYATEMPLATE.MenuItem("他のゴーストと話す","Menu_GHOSTCOMSTART")
 	--
@@ -37,6 +41,8 @@ OpenMenu
 	if ( ARRAYSIZE(CC.Scan) > 0 ) {
 		AYATEMPLATE.MenuItem("Claude Code の様子は？","Menu_CLAUDECODE")
 	}
+	--
+	AYATEMPLATE.MenuItem("設定","Menu_CONFIG")
 	--
 	AYATEMPLATE.MenuItem("なんでもない","Menu_CANCEL",150)
 }
@@ -81,7 +87,133 @@ Menu_TALKINTERVAL
 	--
 	AYATEMPLATE.MenuItem("黙っていて","Menu_TALKNONE")
 	--
+	AYATEMPLATE.MenuItem("戻る","Menu_CONFIG",150)
+}
+
+//---- 設定
+//  ccbelloff   1 なら、Claude Code が返事を待ち始めたときのベルを鳴らさない
+//  ccremindoff 1 なら、返事待ちを放っておかれたときの 5 分ごとのリマインダを出さない
+//  どちらも初めは空（鳴らす）
+Menu_CONFIG
+{
+	_bell   = '鳴らす'
+	_remind = '出す'
+
+	if ccbelloff == 1 {
+		_bell = '鳴らさない'
+	}
+	if ccremindoff == 1 {
+		_remind = '出さない'
+	}
+	'\0\s[0]何を変えたいのかしら？'
+	--
+	AYATEMPLATE.MenuItem("しゃべる頻度を変えて","Menu_TALKINTERVAL",150)
+	--
+	AYATEMPLATE.MenuItem("名前の呼び方を変えて","Menu_USERNAME")
+	--
+	AYATEMPLATE.MenuItem("Claude Code のベル：%(_bell)","Menu_CCBELL")
+	--
+	AYATEMPLATE.MenuItem("Claude Code のリマインダ：%(_remind)","Menu_CCREMIND")
+	--
 	AYATEMPLATE.MenuItem("戻る","OpenMenu",150)
+	--
+	AYATEMPLATE.MenuItem("設定終了","Menu_CONFIGEND")
+}
+
+//---- 設定を切り替えたあとの台詞に付ける選択肢
+//  台詞がアンソニーで終わっても、選択肢はクローディアのバルーンに出す
+CONFIG.AfterItems
+{
+	'\0'
+	--
+	AYATEMPLATE.MenuItem("戻る","Menu_CONFIG",150)
+	--
+	AYATEMPLATE.MenuItem("設定終了","Menu_CONFIGEND")
+}
+
+//---- 設定終了
+Menu_CONFIGEND
+{
+	'\0\s[0]設定はこれでおしまいですわね。\e'
+	'\u\s[10]\0\s[26]ではこのとおりに。\w8\1承りました。\e'
+	'\0\s[25]これで過ごしやすくなりましたでしょう？\e'
+	'\u\s[10]\0\s[0]設定、承りましたわ。\w8\1控えておきます。\e'
+	'\0\s[26]わたくしの采配に抜かりはなくてよ。\e'
+	'\u\s[10]\0\s[6]気が変わったら、\w9\nまたいつでも仰いなさい。\w8\1お待ちしております。\e'
+	'\u\s[10]\1以上でよろしゅうございますか。\w8\0\s[0]ええ、これで結構ですわ。\e'
+}
+
+//---- 名前の呼び方を変える
+//  入力欄の ID が On で始まるので、決定すると OnInputUserName が呼ばれる（reference[0] が入力）
+//  今の呼び方を入力欄に入れておく。ただしタグを壊す文字が入っているときは空にする
+Menu_USERNAME
+{
+	_text = username
+
+	if SHIORI3FW.EscapeAllTags(_text) != _text || ',' _in_ _text || ']' _in_ _text {
+		_text = ''
+	}
+	"\0\s[0]あなたのこと、\w9\nなんとお呼びすればよろしいの？\![open,inputbox,OnInputUserName,0,%(_text)]\e"
+}
+
+OnInputUserName
+{
+	_name = reference[0]
+
+	if STRLEN(_name) == 0 {
+		'\0\s[4]空欄では、お呼びできませんわ。'
+	}
+	elseif SHIORI3FW.EscapeAllTags(_name) != _name {
+		'\0\s[7]おかしな記号はおやめなさい。'
+	}
+	else {
+		username = _name
+		"\0\s[25]%(username)、ですわね。\w9\n覚えて差し上げましたわ。"
+	}
+	--
+	CONFIG.AfterItems
+}
+
+//---- 入力欄が閉じられた（閉じるボタン、またはタイムアウト）
+OnUserInputCancel
+{
+	if reference[0] != 'OnInputUserName' {
+		return ''
+	}
+	'\0\s[6]では、今までどおりにお呼びしますわ。'
+	--
+	CONFIG.AfterItems
+}
+
+//---- 呼び出しのベルの切り替え
+Menu_CCBELL
+{
+	if ccbelloff == 1 {
+		ccbelloff = 0
+		'\![sound,play,cc_bell2.wav]\u\s[10]\0\s[26]では、お呼びがかかったら\w9\nベルを鳴らしますわ。\w8\1この音でございます。'
+	}
+	else {
+		ccbelloff = 1
+		'\u\s[10]\0\s[0]ベルは鳴らさないでおきますわ。\w9\n声だけでお知らせしますわね。\w8\1承知いたしました。'
+	}
+	--
+	CONFIG.AfterItems
+}
+
+//---- 5 分ごとのリマインダの切り替え
+Menu_CCREMIND
+{
+	if ccremindoff == 1 {
+		ccremindoff = 0
+		'\u\s[10]\0\s[7]放っておいたら、5分ごとに\w9\n3回まで呼んで差し上げますわ。\w8\1お忘れになりませんように。'
+	}
+	else {
+		ccremindoff = 1
+		ccremindat  = 0
+		'\u\s[10]\0\s[6]一度お知らせしたら、\w9\nあとは黙って待ちますわ。\w8\1辛抱強くございますね。'
+	}
+	--
+	CONFIG.AfterItems
 }
 
 //---- クローディアに話しかける
@@ -133,28 +265,36 @@ Menu_TALKMAX
 {
 	//---- たくさん話す(15秒間隔)
 	aitalkinterval = 15
-	'\0\s[5]よろしくてよ。\w9\nわたくしの話を存分にお聞きなさい！\w8\1お仕事の手は止めませんように。\e'
+	'\0\s[5]よろしくてよ。\w9\nわたくしの話を存分にお聞きなさい！\w8\1お仕事の手は止めませんように。'
+	--
+	CONFIG.AfterItems
 }
 
 Menu_TALKNORMAL
 {
 	//---- ふつうに話す(3分間隔)
 	aitalkinterval = 180
-	'\0\s[0]では、三分に一度くらいにしておきますわ。\e'
+	'\0\s[0]では、三分に一度くらいにしておきますわ。'
+	--
+	CONFIG.AfterItems
 }
 
 Menu_TALKPOOR
 {
 	//---- 控えめに話す(5分間隔)
 	aitalkinterval = 300
-	'\0\s[6]控えめに、ですわね。\w9\n淑女らしく振る舞いますわ。\w8\1普段からそうなさってください。\e'
+	'\0\s[6]控えめに、ですわね。\w9\n淑女らしく振る舞いますわ。\w8\1普段からそうなさってください。'
+	--
+	CONFIG.AfterItems
 }
 
 Menu_TALKNONE
 {
 	//---- 話さない
 	aitalkinterval = 0
-	'\0\s[4]‥\w5‥\w5わかりましたわ。\w9\n用があるときだけ呼びなさい。\w8\1お嬢様、少し寂しそうでございますね。\w8\0\s[7]\n\n気のせいですわ！\e'
+	'\0\s[4]‥\w5‥\w5わかりましたわ。\w9\n用があるときだけ呼びなさい。\w8\1お嬢様、少し寂しそうでございますね。\w8\0\s[7]\n\n気のせいですわ！'
+	--
+	CONFIG.AfterItems
 }
 
 //---- ヘッドライン

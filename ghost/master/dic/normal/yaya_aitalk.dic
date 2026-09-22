@@ -170,16 +170,21 @@ OnMinuteChange
 //------------------------------------------------------------------------------
 //OnSecondChangeイベント
 //1 秒毎に実行される。ここではあまり重い処理を行わないこと
-//このテンプレートでは、見切れ処理のみ行っている
+//見切れ処理と、Claude Code の返事待ちのリマインダ（yaya_claudecode.dic）を行う
 //---------------------------------------------------------------------------
 OnSecondChange
 {
+	_talk = ''
 
 	if AYATEMPLATE.mikireflag == 1 && reference[1] == 0{
 		//---- 見切れの終了
-		EndMikireTalk
+		_talk = EndMikireTalk
 	}
 	AYATEMPLATE.mikireflag = reference[1]
+	if STRLEN(_talk) == 0 {
+		_talk = CC.Remind
+	}
+	_talk
 }
 
 //------------------------------------------------------------------------------
