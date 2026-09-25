@@ -63,6 +63,7 @@
   - クローディア: `Head`、`Face`、`Bust`、`Hair`（左右の巻き髪）、`Fan`（扇。サーフェスごとに位置が違い、2・4・5 は別の位置）、`Skirt`（裾）、`Foot`（左右の靴）
   - アンソニー: `Tray`、`Head`（頭のひれ）、`Face`、`Body`、`Foot`
 - シェルは `seriko.use_self_alpha,1` で PNG のアルファを使う。
+- 生成した画像は体の内側のアルファが 252〜253 で、255 になっていない。元素材やシェルの画像を足したり作り直したりしたら、`powershell -NoProfile -ExecutionPolicy Bypass -File work/surfaces/fix-alpha.ps1` で、アルファ 240〜254 を 255 にそろえる（既定で `work/surfaces/` と `shell/master/` の全部。`-DryRun` で数えるだけ、`-Path` で対象を絞る）。
 
 ## 見た目の決まり（デザインシステム）
 
