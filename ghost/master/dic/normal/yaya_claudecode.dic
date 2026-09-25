@@ -388,6 +388,8 @@ CC.Pending
 //  ccaddedfile そのうち最後に増えたセッションのファイル名
 //  ccremindat 返事待ちのベルを最後に鳴らした時刻（Unix 秒）。0 ならリマインダなし
 //  ccremindn  そのあとリマインダを鳴らした回数
+//続けて作業している時間（CC.MarkWork）は、セッションを閉じてすぐ開き直したときにも
+//数え続けたいので、ここでは触らず CC.Start で初期化する
 //------------------------------------------------------------------------------
 CC.Reset
 {
@@ -485,6 +487,7 @@ CC.Start
 	_tags = ''
 
 	CC.Reset
+	CC.ResetWork
 	//---- 起動したときの通知領域のアイコンは、descript.txt の icon（クローディア）
 	cctrayicon = 'claudia'
 	if STRLEN(_dir) == 0 {
@@ -630,7 +633,7 @@ CC.DirChanged
 	if ccadded > 0 && CC.TalkOK(60) {
 		cctalkat = GETSECCOUNT
 		_json    = CC.ReadFile(CC.SessionDir + '/' + ccaddedfile)
-		_talk    = CC.WithLabel(CC.TalkNew, CC.Label(CC.Str(_json, 'name'), CC.Str(_json, 'cwd')))
+		_talk    = CC.WithLabel(CC.TalkNewFor(CC.Str(_json, 'cwd')), CC.Label(CC.Str(_json, 'name'), CC.Str(_json, 'cwd')))
 	}
 
 	if STRLEN(_talk) > 0 {
@@ -710,6 +713,9 @@ CC.NoticeFile
 	_id      = CC.Str(_json, 'sessionId')
 	_label   = CC.Label(CC.Str(_json, 'name'), CC.Str(_json, 'cwd'))
 
+	//---- 続けて作業している時間を数える（ccstatus がまだ前の状態のうちに呼ぶ）
+	CC.MarkWork
+
 	//---- 同じセッションが同じ状態のままなら黙る
 	if _id == ccsession && _status == ccstatus {
 		return ''
@@ -755,7 +761,7 @@ CC.NoticeFile
 			_busyfor = (_at - ccbusyat) / 1000
 			if _before == 'busy' && ccbusyid == _id && ccbusyat > 0 && _busyfor >= 15 {
 				if _busyfor >= 90 && CC.TalkOK(120) {
-					_talk = CC.TalkDone(_busyfor)
+					_talk = CC.TalkDoneFor(_busyfor)
 				}
 				if ccdoneoff != 1 {
 					_sound = CC.DONE
@@ -963,6 +969,151 @@ CC.LongBusy
 		ccbusytold = 1
 		cctalkat   = GETSECCOUNT
 		_talk      = CC.WithLabel(CC.TalkLong, ccbusylabel)
+	}
+	_talk
+}
+
+//------------------------------------------------------------------------------
+//OnMinuteChange から 1 分おきに呼ぶ。長考の声かけを優先し、無ければ休憩のすすめ
+//------------------------------------------------------------------------------
+CC.Minute
+{
+	_talk = CC.LongBusy
+	if STRLEN(_talk) == 0 {
+		_talk = CC.LongWork
+	}
+	_talk
+}
+
+
+//******************************************************************************
+//続けて作業している時間と、休憩のすすめ
+//******************************************************************************
+//
+//どれかのセッションの状態が動いたら「作業している」とみなす。状態が 30 分動かず、
+//しかも作業中（busy）でもなければ、そこで一区切り。次に動いたときから数え直す。
+//続けて 2 時間たつごとに、お茶の休憩を勧める。メニューの「設定」で止められる（ccbreakoff）
+//
+//  ccworkfrom 続けて作業し始めた時刻（Unix 秒）。0 なら数えていない
+//  ccworkat   最後にセッションの状態が動いた時刻（Unix 秒）
+//  ccbreakn   その間に休憩を勧めた回数
+//******************************************************************************
+
+CC.ResetWork
+{
+	ccworkfrom = 0
+	ccworkat   = 0
+	ccbreakn   = 0
+}
+
+//------------------------------------------------------------------------------
+//セッションの状態が動いたときに呼ぶ。値は返さない（裸で呼ぶため）
+//------------------------------------------------------------------------------
+CC.MarkWork
+{
+	_now = GETSECCOUNT
+
+	if GETTYPE(ccworkfrom) == 0 || ccworkfrom <= 0 || _now < ccworkat {
+		ccworkfrom = _now
+		ccbreakn   = 0
+	}
+	elseif _now - ccworkat > 1800 && ccstatus != 'busy' {
+		//---- しばらく手が止まっていた。ここから数え直す
+		ccworkfrom = _now
+		ccbreakn   = 0
+	}
+	ccworkat = _now
+}
+
+//------------------------------------------------------------------------------
+//続けて 2 時間、4 時間、‥‥と作業していたら休憩を勧める
+//------------------------------------------------------------------------------
+CC.LongWork
+{
+	_now   = GETSECCOUNT
+	_hours = 0
+
+	if ccbreakoff == 1 || GETTYPE(ccworkfrom) == 0 || ccworkfrom <= 0 {
+		return ''
+	}
+	//---- 時計が巻き戻ったときは、そこから数え直す
+	if _now < ccworkfrom {
+		ccworkfrom = _now
+		ccworkat   = _now
+		ccbreakn   = 0
+		return ''
+	}
+	//---- もう手が止まっている。休憩中の人に休憩を勧めても仕方がない
+	if _now - ccworkat > 1800 && ccstatus != 'busy' {
+		return ''
+	}
+	if _now - ccworkfrom < 7200 * (ccbreakn + 1) {
+		return ''
+	}
+	if !CC.TalkOK(120) {
+		return ''
+	}
+	ccbreakn += 1
+	cctalkat  = _now
+	_hours    = TOINT((_now - ccworkfrom) / 3600)
+	CC.TalkBreak(ccbreakn, _hours)
+}
+
+
+//******************************************************************************
+//トークの選び分け
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//作業フォルダがこのゴースト（悪役令嬢クローディア）のものなら 1
+//clone したフォルダでも、SSP にインストールしたフォルダでも、同じ場所にこの辞書がある
+//  _argv[0] cwd（JSON のまま）
+//------------------------------------------------------------------------------
+CC.IsSelf
+{
+	_cwd = REPLACE(_argv[0], '\\', '/')
+	_is  = 0
+	if STRLEN(_cwd) > 0 && FSIZE(_cwd + '/ghost/master/dic/normal/yaya_claudecode.dic') > 0 {
+		_is = 1
+	}
+	_is
+}
+
+//---- 夜更け（1 時から 4 時台）なら 1
+CC.IsLate
+{
+	_is = 0
+	if hour >= 1 && hour <= 4 {
+		_is = 1
+	}
+	_is
+}
+
+//---- 新しいセッションのトーク。_argv[0] cwd（JSON のまま）
+CC.TalkNewFor
+{
+	_talk = ''
+	if CC.IsSelf(_argv[0]) {
+		_talk = CC.TalkNewSelf
+	}
+	elseif CC.IsLate {
+		_talk = CC.TalkNewLate
+	}
+	else {
+		_talk = CC.TalkNew
+	}
+	_talk
+}
+
+//---- 長考が片付いたときのトーク。_argv[0] かかった秒数
+CC.TalkDoneFor
+{
+	_talk = ''
+	if CC.IsLate {
+		_talk = CC.TalkDoneLate
+	}
+	else {
+		_talk = CC.TalkDone(_argv[0])
 	}
 	_talk
 }
@@ -1214,6 +1365,47 @@ CC.TalkNew : nonoverlap
 	'\u\s[10]\0\s[25]また働き手が増えましたわね。\w8\1賑やかでございます。\e'
 	'\u\s[10]\0\s[26]あら、何を始めるのかしら。\w9\nわたくしにも見せなさいな。\w8\1のぞき見はほどほどに。\e'
 	'\u\s[10]\0\s[0]新しいセッションですわね。\w9\n最初の指示が肝心でしてよ。\w8\1仰るとおりでございます。\e'
+}
+
+//---- 新しいセッションが、このゴーストのフォルダで立ち上がった
+CC.TalkNewSelf : nonoverlap
+{
+	'\u\s[10]\0\s[2]あら、わたくしの辞書を\w9\n開くおつもり？\w8\1お嬢様の身だしなみの時間でございます。\w8\0\s[26]\n\n‥\w5‥\w5丁寧になさいな。\e'
+	'\u\s[10]\0\s[1]わたくしを手直しするのね。\w9\n美しく仕上げてくださる？\w8\1鏡をお持ちいたします。\e'
+	'\u\s[10]\0\s[26]あら、わたくしの番ですの？\w9\n台詞の一つ一つまで\w9\n吟味なさいな。\w8\1check-dic もお忘れなく。\e'
+	'\u\s[10]\0\s[7]わたくしの口調を変えたら、\w9\n承知しませんわよ。\w8\1「ですわ」は死守とのことでございます。\e'
+}
+
+//---- 新しいセッションが、夜更けに立ち上がった
+CC.TalkNewLate : nonoverlap
+{
+	"\u\s[10]\0\s[7]こんな時間に新しいお仕事？\w9\n%(username)、正気ですの？\w8\1夜更けの思いつきは、\w9\n朝に見直すのがよろしいかと。\e"
+	'\u\s[10]\0\s[4]‥\w5‥\w5まだ始めますの？\w9\n夜もすっかり更けましてよ。\w8\1お夜食をお持ちいたします。\w8\0\s[7]\n\n甘やかさないでちょうだい。\e'
+	'\u\s[10]\0\s[6]‥\w5‥\w5止めても聞かないのでしょうね。\w9\nせめて手短になさいな。\w8\1ホットミルクを温めてまいります。\e'
+}
+
+//---- 長考が夜更けに片付いた
+CC.TalkDoneLate : nonoverlap
+{
+	'\u\s[10]\0\s[6]片付きましたわね。\w9\nでしたら、今夜はここまで。\w8\1寝室の支度は整っております。\e'
+	"\u\s[10]\0\s[7]終わりましたわよ。\w9\n続きは明日になさい、%(username)。\w8\1お嬢様もお休みくださいませ。\w8\0\s[1]\n\n‥\w5‥\w5わ、わかっていますわ。\e"
+	'\u\s[10]\0\s[25]よく頑張りましたこと。\w9\n確かめるのは、よく眠ってから\w9\nになさいな。\w8\1寝ぼけた目での確認は、\w9\n確認とは申しません。\e'
+}
+
+//---- 続けて作業しているので休憩を勧める
+//  _argv[0] 何回目か（1 なら 2 時間目）/ _argv[1] 続けて作業している時間（時間）
+CC.TalkBreak
+{
+	if _argv[0] <= 1 {
+		"\u\s[10]\0\s[0]もう%(_argv[1])時間、働きづめですわよ。\w9\n一息お入れなさい。\w8\1%(tea)をお淹れいたしました。\e"
+		"\u\s[10]\0\s[26]お茶の時間にいたしましょう。\w9\n%(_argv[1])時間も画面と\w9\nにらめっこでしてよ。\w8\1本日のお菓子は%(sweets)でございます。\e"
+		'\u\s[10]\0\s[6]少し目をお休めなさいな。\w9\n遠くの景色を眺めるのがよくてよ。\w8\1何かあれば、お嬢様がベルでお呼びいたします。\e'
+	}
+	else {
+		"\u\s[10]\0\s[7]%(_argv[1])時間ですわよ、%(username)。\w9\nさすがに働きすぎですわ。\w8\1お茶が冷めてしまいました。\w9\n淹れ直してまいります。\e"
+		"\u\s[10]\0\s[4]‥\w5‥\w5まだ続けますの？\w9\nもう%(_argv[1])時間ですのに。\w8\1立って伸びをなさるだけでも\w9\n違うものでございます。\e"
+		'\u\s[10]\0\s[7]休みなさいと申し上げましたわよね？\w8\1お聞き流しのご様子でございます。\w8\0\s[4]\n\n‥\w5‥\w5もう。\w9\n倒れても看病して差し上げませんわよ。\w8\1\n\nなさると存じます。\e'
+	}
 }
 
 //---- 全部終わった

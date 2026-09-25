@@ -39,6 +39,7 @@
 | `yaya_etc.dic` | シェル変更、インストール、消滅（vanish）、ネットワーク更新、ヘッドライン、時刻合わせなどのイベント。PC の様子（バッテリー、デバイスの抜き差し、壁紙の変更、音楽の再生） |
 | `yaya_string.dic` | メニュー項目やおすすめサイトなどのリソース（`On_*`） |
 | `yaya_word.dic` | トーク中に埋め込む単語（`%(tea)` 紅茶、`%(sweets)` お菓子、`%(food)` 料理） |
+| `yaya_claudecode.dic` | Claude Code のセッションの見張り（`CC.*`）。`%USERPROFILE%\.claude\sessions\*.json` を `\![execute,filewatch]` で見張り（`OnClaudeCodeDir` / `OnClaudeCodeFile`）、返事待ちのベルと 5 分ごとのリマインダ、長考と完了、新しいセッション、休憩のすすめ（続けて 2 時間ごと）、通知領域のアイコンの切り替えを行う。見張りは `OnBoot` の `CC.Start` で立てる。詳しい仕組みは先頭のコメントにある |
 | `yaya_homeurl.dic` | ネットワーク更新の URL（`On_homeurl`） |
 | `yaya_tmpl_util.dic` | テンプレートの内部処理（`AYATEMPLATE.*`）。必要なとき以外は触らない |
 
@@ -57,8 +58,8 @@
 - クローディアの 6 番と 26 番は画像を持たず、`surfaces.txt` の `element` で 0 番の上にそれぞれ 1000 と 1001 を重ねて作っている。
 - アンソニーの 11 番は画像を持たず、`surfaces.txt` の `element` で 10 番の上に目と眉のパーツ `anthony_eyes11.png` を重ねて作っている（体の色味を 10 番とそろえるため）。
 - 当たり判定（`surfaces.txt` の `collision`）:
-  - クローディア: `Head`、`Face`、`Bust`、`Hair`（左右の巻き髪）、`Fan`（扇。サーフェスごとに位置が違い、2・4・5 は別の位置）
-  - アンソニー: `Tray`、`Head`（頭のひれ）、`Face`、`Body`
+  - クローディア: `Head`、`Face`、`Bust`、`Hair`（左右の巻き髪）、`Fan`（扇。サーフェスごとに位置が違い、2・4・5 は別の位置）、`Skirt`（裾）、`Foot`（左右の靴）
+  - アンソニー: `Tray`、`Head`（頭のひれ）、`Face`、`Body`、`Foot`
 - シェルは `seriko.use_self_alpha,1` で PNG のアルファを使う。
 
 ## トークの書き方

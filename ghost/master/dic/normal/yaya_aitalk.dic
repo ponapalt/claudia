@@ -276,8 +276,9 @@ OnMinuteChange
 		'\0\s[7]アンソニー、近いですわ。\w8\1失礼いたしました。\4\e'
 	}
 	else{
-		//---- Claude Code が長く考え込んでいたら一度だけ声をかける（yaya_claudecode.dic）
-		CC.LongBusy
+		//---- Claude Code が長く考え込んでいたら一度だけ声をかけ、
+		//---- 続けて長く作業していたら休憩を勧める（yaya_claudecode.dic）
+		CC.Minute
 	}
 }
 

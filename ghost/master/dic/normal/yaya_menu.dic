@@ -94,12 +94,14 @@ Menu_TALKINTERVAL
 //  ccbelloff   1 なら、Claude Code が返事を待ち始めたときのベルを鳴らさない
 //  ccdoneoff   1 なら、長くかかった作業が終わったときの完了音を鳴らさない
 //  ccremindoff 1 なら、返事待ちを放っておかれたときの 5 分ごとのリマインダを出さない
-//  どちらも初めは空（鳴らす）
+//  ccbreakoff  1 なら、続けて 2 時間作業したときの休憩のすすめを出さない
+//  どれも初めは空（鳴らす、出す）
 Menu_CONFIG
 {
 	_bell   = '鳴らす'
 	_done   = '鳴らす'
 	_remind = '出す'
+	_break  = '出す'
 
 	if ccbelloff == 1 {
 		_bell = '鳴らさない'
@@ -109,6 +111,9 @@ Menu_CONFIG
 	}
 	if ccremindoff == 1 {
 		_remind = '出さない'
+	}
+	if ccbreakoff == 1 {
+		_break = '出さない'
 	}
 	'\0\s[0]何を変えたいのかしら？'
 	--
@@ -121,6 +126,8 @@ Menu_CONFIG
 	AYATEMPLATE.MenuItem("Claude Code の完了音：%(_done)","Menu_CCDONE")
 	--
 	AYATEMPLATE.MenuItem("Claude Code のリマインダ：%(_remind)","Menu_CCREMIND")
+	--
+	AYATEMPLATE.MenuItem("休憩のすすめ：%(_break)","Menu_CCBREAK")
 	--
 	AYATEMPLATE.MenuItem("戻る","OpenMenu",150)
 	--
@@ -233,6 +240,21 @@ Menu_CCREMIND
 		ccremindoff = 1
 		ccremindat  = 0
 		'\u\s[10]\0\s[6]一度お知らせしたら、\w9\nあとは黙って待ちますわ。\w8\1辛抱強くございますね。'
+	}
+	--
+	CONFIG.AfterItems
+}
+
+//---- 続けて 2 時間作業したときの休憩のすすめの切り替え
+Menu_CCBREAK
+{
+	if ccbreakoff == 1 {
+		ccbreakoff = 0
+		'\u\s[10]\0\s[0]2時間働きづめでしたら、\w9\nお茶に誘って差し上げますわ。\w8\1お湯を沸かしておきます。'
+	}
+	else {
+		ccbreakoff = 1
+		'\u\s[10]\0\s[4]‥\w5‥\w5休憩は、ご自分で\w9\nお取りなさいな。\w8\1お茶はいつでもご用意できます。'
 	}
 	--
 	CONFIG.AfterItems
