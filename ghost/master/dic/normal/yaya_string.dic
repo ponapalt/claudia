@@ -152,20 +152,20 @@ MenuColor
 	_rgb = IARRAY
 	if menuscope == 1 {
 		case _argv[0] {
-			when 'background' { _rgb = (38, 42, 66) }
-			when 'foreground' { _rgb = (36, 56, 130) }
-			when 'disable' { _rgb = (150, 156, 178) }
-			when 'separator' { _rgb = (197, 150, 78) }
-			when 'frame' { _rgb = (49, 49, 62) }
+			when 'background' { _rgb = (34, 38, 58) }
+			when 'foreground' { _rgb = (52, 86, 168) }
+			when 'disable' { _rgb = (138, 146, 170) }
+			when 'separator' { _rgb = (169, 177, 196) }
+			when 'frame' { _rgb = (38, 42, 59) }
 		}
 	}
 	else {
 		case _argv[0] {
-			when 'background' { _rgb = (74, 43, 30) }
-			when 'foreground' { _rgb = (120, 40, 20) }
-			when 'disable' { _rgb = (184, 164, 140) }
-			when 'separator' { _rgb = (197, 150, 78) }
-			when 'frame' { _rgb = (160, 74, 38) }
+			when 'background' { _rgb = (58, 36, 25) }
+			when 'foreground' { _rgb = (140, 59, 31) }
+			when 'disable' { _rgb = (138, 117, 96) }
+			when 'separator' { _rgb = (185, 141, 74) }
+			when 'frame' { _rgb = (180, 83, 47) }
 		}
 	}
 	_rgb[_argv[1]]

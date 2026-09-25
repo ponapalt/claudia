@@ -1,0 +1,6 @@
+kicker=悪役令嬢
+title=クローディア
+latin=Claudia et Anthony
+quote1=あなたの机は、
+quote2=今日からわたくしの領地ですわ。
+footer=伺か ghost  /  SHIORI: YAYA

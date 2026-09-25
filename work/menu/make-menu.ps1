@@ -5,8 +5,10 @@
 # The ghost returns one set or the other from yaya_string.dic (On_menu.*), depending on
 # which character was clicked last. The alignment stays in ghost/master/descript.txt.
 #
-# Claudia's palette follows the claudia balloon (work/balloon/make-balloon.ps1): ivory
-# parchment, terracotta frame, gold rule. Anthony's uses his tailcoat navy and pale blue.
+# Colors and ornaments follow docs/design-system.md. Claudia: vellum ground, clay sidebar,
+# gold rules. Anthony: card ground, tailcoat sidebar, silver rules and one brooch gem.
+# The selected row (foreground) carries a 3px mark on its left edge. No rule runs along
+# the menu edges: a lone line there reads as a drawing glitch, not as an ornament.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File work/menu/make-menu.ps1
 
@@ -21,15 +23,18 @@ $ErrorActionPreference = 'Stop'
 function RGB($r, $g, $b, $a = 255) { [System.Drawing.Color]::FromArgb($a, $r, $g, $b) }
 
 # Background and foreground are aligned leftbottom. Beyond the image, SSP extends the
-# edge colors, so the right and top edges are kept flat.
+# right edge color of each row to the right and the top edge color of each column
+# upward, so the mark carries on and everything else stays flat.
+# The images are tall enough for the long SSP menu without relying on that.
 $bgW = 360
-$bgH = 640
+$bgH = 1024
 $figH = 300
 $figMargin = 6
-$figAlpha = 0.16
+$figAlpha = 0.14
+$markW = 3
 
 $sbW = 30
-$sbH = 640
+$sbH = 1024
 
 $characters = @(
     @{
@@ -39,11 +44,13 @@ $characters = @(
         Full = 'icon_c_full.png'
         # opaque bounds of the full-body image (x, y, w, h)
         FullRect = @(124, 56, 777, 1425)
-        Ground = (RGB 255 251 243)
-        Select = (RGB 240 214 160)
-        Bar = (RGB 160 74 38)
-        Gold = (RGB 197 150 78)
-        Label = (RGB 238 214 170)
+        Ground = (RGB 250 245 234)
+        Select = (RGB 231 211 168)
+        Mark = (RGB 180 83 47)
+        Bar = (RGB 180 83 47)
+        Rule = (RGB 185 141 74)
+        Label = (RGB 250 245 234)
+        Gem = (RGB 185 141 74)
     },
     @{
         Prefix = 'menu_anthony_'
@@ -51,11 +58,13 @@ $characters = @(
         Icon = 'icon_a.png'
         Full = 'icon_a_full.png'
         FullRect = @(76, 120, 873, 1317)
-        Ground = (RGB 244 247 255)
-        Select = (RGB 208 220 248)
-        Bar = (RGB 49 49 62)
-        Gold = (RGB 197 150 78)
-        Label = (RGB 214 222 246)
+        Ground = (RGB 238 242 250)
+        Select = (RGB 214 223 243)
+        Mark = (RGB 52 86 168)
+        Bar = (RGB 38 42 59)
+        Rule = (RGB 169 177 196)
+        Label = (RGB 238 242 250)
+        Gem = (RGB 30 116 121)
     }
 )
 
@@ -95,13 +104,18 @@ function Draw-Image($g, $img, $dx, $dy, $dw, $dh, $sx, $sy, $sw, $sh, $alpha) {
 
 # Background or foreground: flat ground with the full-body figure standing faintly in
 # the bottom-left corner, which is always visible with leftbottom alignment.
-function New-Ground($ch, $full, $fill) {
+function New-Ground($ch, $full, $fill, [bool]$selected) {
     $c = New-Canvas $bgW $bgH
     $bmp = $c[0]; $g = $c[1]
     $g.Clear($fill)
     $r = $ch.FullRect
     $w = [int]($r[2] * $figH / $r[3])
     Draw-Image $g $full $figMargin ($bgH - $figH - $figMargin) $w $figH $r[0] $r[1] $r[2] $r[3] $figAlpha
+    if ($selected) {
+        $brush = New-Object System.Drawing.SolidBrush $ch.Mark
+        $g.FillRectangle($brush, 0, 0, $markW, $bgH)
+        $brush.Dispose()
+    }
     $g.Dispose()
     return $bmp
 }
@@ -113,7 +127,7 @@ function New-Sidebar($ch, $icon) {
     $sb = $c[0]; $g = $c[1]
     $g.Clear($ch.Bar)
 
-    $pen = New-Object System.Drawing.Pen $ch.Gold, 1
+    $pen = New-Object System.Drawing.Pen $ch.Rule, 1
     $g.DrawLine($pen, $sbW - 3.5, 0, $sbW - 3.5, $sbH)
     $pen.Dispose()
 
@@ -128,7 +142,7 @@ function New-Sidebar($ch, $icon) {
     $g.SetClip($clip)
     Draw-Image $g $icon ($rx - 2) ($ry - 1) ($ring + 4) ($ring + 4) 0 0 $icon.Width $icon.Height 1.0
     $g.ResetClip()
-    $pen = New-Object System.Drawing.Pen $ch.Gold, 1.5
+    $pen = New-Object System.Drawing.Pen $ch.Rule, 1.5
     $g.DrawEllipse($pen, $rx, $ry, $ring, $ring)
     $pen.Dispose()
 
@@ -140,7 +154,7 @@ function New-Sidebar($ch, $icon) {
     $brush = New-Object System.Drawing.SolidBrush $ch.Label
     $g.DrawString($ch.Name, $font, $brush, [single]0, [single](-$size.Height / 2))
     $brush.Dispose()
-    $gem = New-Object System.Drawing.SolidBrush $ch.Gold
+    $gem = New-Object System.Drawing.SolidBrush $ch.Gem
     $dx = $size.Width + 6
     $g.FillPolygon($gem, [System.Drawing.PointF[]]@(
         (New-Object System.Drawing.PointF ($dx), 0),
@@ -162,11 +176,11 @@ foreach ($ch in $characters) {
     $icon = Open-Image (Join-Path $WorkDir $ch.Icon)
     $full = Open-Image (Join-Path $WorkDir $ch.Full)
 
-    $bmp = New-Ground $ch $full $ch.Ground
+    $bmp = New-Ground $ch $full $ch.Ground $false
     $bmp.Save((Join-Path $OutDir ($ch.Prefix + 'background.png')), $png)
     $bmp.Dispose()
 
-    $bmp = New-Ground $ch $full $ch.Select
+    $bmp = New-Ground $ch $full $ch.Select $true
     $bmp.Save((Join-Path $OutDir ($ch.Prefix + 'foreground.png')), $png)
     $bmp.Dispose()
 

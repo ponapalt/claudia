@@ -16,6 +16,9 @@
     The bottom margin keeps the text clear of the online / SSTP markers, the SSTP
     message and the counter, which sit 10..24px above the bottom edge of the body.
     descript.txt and the other text files are copied from text/ as they are.
+    Colors and ornaments follow docs/design-system.md. The tail is a quill point: its
+    sides flare out of the body edge and curve in to a fine tip, and a small lozenge
+    on the inner rule marks where it leaves the body.
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File work/balloon/make-balloon.ps1
 #>
@@ -51,6 +54,7 @@ public class Theme
     public string Mono = null;      // watermark letter, null = none
     public int MonoAlpha = 28;
     public bool Fancy = false;      // extra lozenges on the top/bottom of the inner frame
+    public Color GemAccent = Color.Empty; // bottom-right corner gem only, Empty = same as the others
 }
 
 public static class Gen
@@ -58,17 +62,55 @@ public static class Gen
     public static Color C(int r, int g, int b) { return Color.FromArgb(255, r, g, b); }
 
     // dir: 0 = no tail, 1 = right, 2 = left, 3 = bottom
+    // one side of the quill-point tail, from a to b along the path.
+    // (ox, oy): unit vector out of the body. (ex, ey): unit vector along the body edge in
+    // the direction the path runs. One end of the side is on the edge, the other is the tip.
+    static void TailSide(GraphicsPath p, PointF a, PointF b, bool fromEdge, float ox, float oy, float ex, float ey, float tout, float thalf)
+    {
+        PointF c1, c2;
+        if (fromEdge)
+        {
+            // leaves the edge almost along it, then bends out and narrows to the tip
+            c1 = new PointF(a.X + ox * tout * 0.20f + ex * thalf * 0.65f, a.Y + oy * tout * 0.20f + ey * thalf * 0.65f);
+            c2 = new PointF(b.X - ox * tout * 0.40f - ex * thalf * 0.08f, b.Y - oy * tout * 0.40f - ey * thalf * 0.08f);
+        }
+        else
+        {
+            c1 = new PointF(a.X - ox * tout * 0.40f + ex * thalf * 0.08f, a.Y - oy * tout * 0.40f + ey * thalf * 0.08f);
+            c2 = new PointF(b.X + ox * tout * 0.20f - ex * thalf * 0.65f, b.Y + oy * tout * 0.20f - ey * thalf * 0.65f);
+        }
+        p.AddBezier(a, c1, c2, b);
+    }
+
     static GraphicsPath Body(RectangleF rc, float rad, int dir, float tpos, float tout, float thalf)
     {
         GraphicsPath p = new GraphicsPath();
         float L = rc.Left, T = rc.Top, R = rc.Right, B = rc.Bottom, d = rad * 2;
         p.AddArc(L, T, d, d, 180, 90);
         p.AddArc(R - d, T, d, d, 270, 90);
-        if (dir == 1) { p.AddLine(R, tpos - thalf, R + tout, tpos); p.AddLine(R + tout, tpos, R, tpos + thalf); }
+        if (dir == 1)
+        {
+            // right edge, the path runs downward
+            PointF tip = new PointF(R + tout, tpos);
+            TailSide(p, new PointF(R, tpos - thalf), tip, true, 1, 0, 0, 1, tout, thalf);
+            TailSide(p, tip, new PointF(R, tpos + thalf), false, 1, 0, 0, 1, tout, thalf);
+        }
         p.AddArc(R - d, B - d, d, d, 0, 90);
-        if (dir == 3) { p.AddLine(tpos + thalf, B, tpos, B + tout); p.AddLine(tpos, B + tout, tpos - thalf, B); }
+        if (dir == 3)
+        {
+            // bottom edge, the path runs to the left
+            PointF tip = new PointF(tpos, B + tout);
+            TailSide(p, new PointF(tpos + thalf, B), tip, true, 0, 1, -1, 0, tout, thalf);
+            TailSide(p, tip, new PointF(tpos - thalf, B), false, 0, 1, -1, 0, tout, thalf);
+        }
         p.AddArc(L, B - d, d, d, 90, 90);
-        if (dir == 2) { p.AddLine(L, tpos + thalf, L - tout, tpos); p.AddLine(L - tout, tpos, L, tpos - thalf); }
+        if (dir == 2)
+        {
+            // left edge, the path runs upward
+            PointF tip = new PointF(L - tout, tpos);
+            TailSide(p, new PointF(L, tpos + thalf), tip, true, -1, 0, 0, -1, tout, thalf);
+            TailSide(p, tip, new PointF(L, tpos - thalf), false, -1, 0, 0, -1, tout, thalf);
+        }
         p.CloseFigure();
         return p;
     }
@@ -138,7 +180,7 @@ public static class Gen
                     g.SetClip(p);
                     using (LinearGradientBrush br = new LinearGradientBrush(
                             new RectangleF(sh.X, sh.Y - 1, sh.Width, sh.Height + 1),
-                            Color.FromArgb(110, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f))
+                            Color.FromArgb(100, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f))
                         g.FillRectangle(br, sh);
                     g.Clip = keep;
                 }
@@ -170,10 +212,17 @@ public static class Gen
                 // a small gem where each corner arc turns
                 float k = hrad * 0.7071f;
                 Color gem = Color.FromArgb(230, t.Gems.IsEmpty ? t.Hair : t.Gems);
+                Color gemBR = t.GemAccent.IsEmpty ? gem : Color.FromArgb(240, t.GemAccent);
                 Gem(g, hr.Left + hrad - k, hr.Top + hrad - k, 2.6f, 2.6f, gem);
                 Gem(g, hr.Right - hrad + k, hr.Top + hrad - k, 2.6f, 2.6f, gem);
-                Gem(g, hr.Right - hrad + k, hr.Bottom - hrad + k, 2.6f, 2.6f, gem);
+                Gem(g, hr.Right - hrad + k, hr.Bottom - hrad + k, 2.6f, 2.6f, gemBR);
                 Gem(g, hr.Left + hrad - k, hr.Bottom - hrad + k, 2.6f, 2.6f, gem);
+
+                // where the tail leaves the body, a small lozenge sits on the inner rule
+                Color tg = Color.FromArgb(235, t.Hair);
+                if (dir == 1) Gem(g, hr.Right, tpos, 2.4f, 3.4f, tg);
+                if (dir == 2) Gem(g, hr.Left, tpos, 2.4f, 3.4f, tg);
+                if (dir == 3) Gem(g, tpos, hr.Bottom, 3.4f, 2.4f, tg);
 
                 if (t.Fancy)
                 {
@@ -284,12 +333,15 @@ function New-Theme {
 
 function RGB { param($r, $g, $b) return [Gen]::C($r, $g, $b) }
 
-# Claudia: ivory parchment, terracotta frame, gold inner rule (her dress and tiara).
-$themeS = New-Theme (RGB 255 251 243) (RGB 246 231 210) (RGB 160 74 38) (RGB 197 150 78) (RGB 74 43 30) 'C' $true 30
-# Anthony: pale blue card, tailcoat frame, gold rule, brooch-green gems.
-$themeK = New-Theme (RGB 250 251 255) (RGB 227 235 250) (RGB 51 52 70) (RGB 197 150 78) (RGB 35 38 64) 'A' $false 24 (RGB 22 109 123)
+# Colors from docs/design-system.md.
+# Claudia: vellum to vellum-deep, clay frame, gold inner rule and gems, watermark C.
+$themeS = New-Theme (RGB 250 245 234) (RGB 240 228 206) (RGB 180 83 47) (RGB 185 141 74) (RGB 58 36 25) 'C' $true 28
+# Anthony: card, halfway to card-deep at the bottom, tailcoat frame, silver rule and gems,
+# one brooch-teal gem in the bottom-right corner.
+$themeK = New-Theme (RGB 238 242 250) (RGB 226 233 247) (RGB 38 42 59) (RGB 169 177 196) (RGB 34 38 58) 'A' $false 24
+$themeK.GemAccent = RGB 30 116 121
 # Input boxes: Claudia's palette, no watermark.
-$themeC = New-Theme (RGB 255 251 243) (RGB 246 231 210) (RGB 160 74 38) (RGB 197 150 78) (RGB 74 43 30) $null $false
+$themeC = New-Theme (RGB 250 245 234) (RGB 240 228 206) (RGB 180 83 47) (RGB 185 141 74) (RGB 58 36 25) $null $false
 
 function Save-Png {
     param($Bitmap, $Path)
@@ -326,7 +378,7 @@ function Build-Common {
     param([string]$Dir)
     # the caption of each input box is part of the image, as in the SSP default balloon
     $captions = @('Send', 'Communicate', 'Teach', 'Input', 'Address')
-    $capColor = [System.Drawing.Color]::FromArgb(235, 150, 74, 40)
+    $capColor = [System.Drawing.Color]::FromArgb(235, 180, 83, 47)
     for ($i = 0; $i -lt $captions.Count; $i++) {
         $rc = New-Object System.Drawing.RectangleF(1.0, 1.0, 380.0, 46.0)
         $bm = [Gen]::Make(382, 48, $rc, 10.0, 0, 0.0, 0.0, 0.0, $themeC, 4.0, $false)
@@ -334,25 +386,26 @@ function Build-Common {
         Save-Png $bm (Join-Path $Dir "balloonc$i.png")
     }
 
-    $inkS = RGB 168 80 42
-    $edgeS = RGB 110 48 24
-    $inkK = RGB 60 64 96
-    $edgeK = RGB 35 38 64
-    $gold = RGB 197 150 78
+    $inkS = RGB 180 83 47
+    $edgeS = RGB 140 59 31
+    $inkK = RGB 74 82 112
+    $edgeK = RGB 38 42 59
+    $gold = RGB 185 141 74
+    $silver = RGB 169 177 196
 
     Save-Png ([Gen]::Arrow($true, $inkS, $edgeS)) (Join-Path $Dir 'arrow0.png')
     Save-Png ([Gen]::Arrow($false, $inkS, $edgeS)) (Join-Path $Dir 'arrow1.png')
     Save-Png ([Gen]::Arrow($true, $inkK, $edgeK)) (Join-Path $Dir 'arrowb0.png')
     Save-Png ([Gen]::Arrow($false, $inkK, $edgeK)) (Join-Path $Dir 'arrowb1.png')
     Save-Png ([Gen]::Sstp($gold, $edgeS)) (Join-Path $Dir 'sstp.png')
-    Save-Png ([Gen]::Sstp($gold, $edgeK)) (Join-Path $Dir 'sstpb.png')
+    Save-Png ([Gen]::Sstp($silver, $edgeK)) (Join-Path $Dir 'sstpb.png')
 
     for ($i = 0; $i -lt 4; $i++) {
         Save-Png ([Gen]::Online($i, $inkS, $gold)) (Join-Path $Dir "online$i.png")
-        Save-Png ([Gen]::Online($i, $inkK, $gold)) (Join-Path $Dir "onlineb$i.png")
+        Save-Png ([Gen]::Online($i, $inkK, $silver)) (Join-Path $Dir "onlineb$i.png")
     }
     Save-Png ([Gen]::Online(3, $inkS, $gold)) (Join-Path $Dir 'online.png')
-    Save-Png ([Gen]::Online(3, $inkK, $gold)) (Join-Path $Dir 'onlineb.png')
+    Save-Png ([Gen]::Online(3, $inkK, $silver)) (Join-Path $Dir 'onlineb.png')
 }
 
 # thumbnail for the balloon list: balloons0 with the name written in it
@@ -364,8 +417,8 @@ function Build-Thumbnail {
     $g.DrawImage($src, 0, 0, $src.Width, $src.Height)
     $g.Dispose()
     $src.Dispose()
-    [Gen]::Caption($tb, 'Claudia', [System.Drawing.Color]::FromArgb(230, 160, 74, 38), 26.0, 20.0, 34.0)
-    [Gen]::Caption($tb, 'et Anthony', [System.Drawing.Color]::FromArgb(200, 120, 90, 60), 30.0, 58.0, 18.0)
+    [Gen]::Caption($tb, 'Claudia', [System.Drawing.Color]::FromArgb(230, 180, 83, 47), 26.0, 20.0, 34.0)
+    [Gen]::Caption($tb, 'et Anthony', [System.Drawing.Color]::FromArgb(210, 107, 78, 61), 30.0, 58.0, 18.0)
     Save-Png $tb (Join-Path $Dir 'thumbnail.png')
 }
 

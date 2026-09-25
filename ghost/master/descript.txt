@@ -19,3 +19,4 @@ craftmanurl,https://github.com/ponapalt/claudia
 menu.background.alignment,leftbottom
 menu.foreground.alignment,leftbottom
 menu.sidebar.alignment,bottom
+menu.font.name,BIZ UDP明朝 Medium

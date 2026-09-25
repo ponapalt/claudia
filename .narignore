@@ -44,3 +44,6 @@ yaya_variable.cfg
 
 # source images of the shell (not needed at runtime)
 /work/
+
+# design notes for developing the ghost; only in the repository
+/docs/design-system.md

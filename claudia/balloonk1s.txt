@@ -4,74 +4,74 @@
 // balloonk0s.txt / balloonk1s.txt … として配置される。
 
 //--- 本文（濃紺のインク） ---
-font.color.r,35
+font.color.r,34
 font.color.g,38
-font.color.b,64
+font.color.b,58
 
-font.shadowcolor.r,216
-font.shadowcolor.g,225
+font.shadowcolor.r,214
+font.shadowcolor.g,223
 font.shadowcolor.b,243
 
-//--- リンク（アンカー）はブローチの深緑 ---
-anchor.font.color.r,20
-anchor.font.color.g,100
-anchor.font.color.b,116
-anchor.pen.color.r,22
-anchor.pen.color.g,109
-anchor.pen.color.b,123
-anchor.font.shadowcolor.r,216
-anchor.font.shadowcolor.g,225
+//--- リンク（アンカー）は藍 ---
+anchor.font.color.r,52
+anchor.font.color.g,86
+anchor.font.color.b,168
+anchor.pen.color.r,52
+anchor.pen.color.g,86
+anchor.pen.color.b,168
+anchor.font.shadowcolor.r,214
+anchor.font.shadowcolor.g,223
 anchor.font.shadowcolor.b,243
 
-anchor.notselect.font.color.r,20
-anchor.notselect.font.color.g,100
-anchor.notselect.font.color.b,116
-anchor.notselect.pen.color.r,120
-anchor.notselect.pen.color.g,168
-anchor.notselect.pen.color.b,178
-anchor.notselect.font.shadowcolor.r,216
-anchor.notselect.font.shadowcolor.g,225
+anchor.notselect.font.color.r,52
+anchor.notselect.font.color.g,86
+anchor.notselect.font.color.b,168
+anchor.notselect.pen.color.r,169
+anchor.notselect.pen.color.g,177
+anchor.notselect.pen.color.b,196
+anchor.notselect.font.shadowcolor.r,214
+anchor.notselect.font.shadowcolor.g,223
 anchor.notselect.font.shadowcolor.b,243
 
-anchor.visited.font.color.r,80
-anchor.visited.font.color.g,96
-anchor.visited.font.color.b,120
-anchor.visited.pen.color.r,150
-anchor.visited.pen.color.g,164
-anchor.visited.pen.color.b,190
-anchor.visited.font.shadowcolor.r,216
-anchor.visited.font.shadowcolor.g,225
+anchor.visited.font.color.r,74
+anchor.visited.font.color.g,82
+anchor.visited.font.color.b,112
+anchor.visited.pen.color.r,169
+anchor.visited.pen.color.g,177
+anchor.visited.pen.color.b,196
+anchor.visited.font.shadowcolor.r,214
+anchor.visited.font.shadowcolor.g,223
 anchor.visited.font.shadowcolor.b,243
 
 //--- 選択肢（カーソル） ---
-cursor.brush.color.r,206
-cursor.brush.color.g,222
-cursor.brush.color.b,246
-cursor.pen.color.r,22
-cursor.pen.color.g,109
-cursor.pen.color.b,123
-cursor.font.color.r,35
+cursor.brush.color.r,214
+cursor.brush.color.g,223
+cursor.brush.color.b,243
+cursor.pen.color.r,38
+cursor.pen.color.g,42
+cursor.pen.color.b,59
+cursor.font.color.r,34
 cursor.font.color.g,38
-cursor.font.color.b,64
-cursor.font.shadowcolor.r,246
-cursor.font.shadowcolor.g,250
-cursor.font.shadowcolor.b,255
+cursor.font.color.b,58
+cursor.font.shadowcolor.r,238
+cursor.font.shadowcolor.g,242
+cursor.font.shadowcolor.b,250
 
-cursor.notselect.font.color.r,20
-cursor.notselect.font.color.g,100
-cursor.notselect.font.color.b,116
-cursor.notselect.font.shadowcolor.r,216
-cursor.notselect.font.shadowcolor.g,225
+cursor.notselect.font.color.r,52
+cursor.notselect.font.color.g,86
+cursor.notselect.font.color.b,168
+cursor.notselect.font.shadowcolor.r,214
+cursor.notselect.font.shadowcolor.g,223
 cursor.notselect.font.shadowcolor.b,243
 
 //--- カウンタと SSTP メッセージ ---
-number.font.color.r,80
-number.font.color.g,96
-number.font.color.b,130
+number.font.color.r,74
+number.font.color.g,82
+number.font.color.b,112
 
-sstpmessage.font.color.r,80
-sstpmessage.font.color.g,96
-sstpmessage.font.color.b,130
+sstpmessage.font.color.r,74
+sstpmessage.font.color.g,82
+sstpmessage.font.color.b,112
 
 //--- 矢印・マーカーもアンソニーの色のものに差し替える ---
 arrow.filename,arrowb

@@ -30,10 +30,10 @@ if (Test-Path $d) {
         if ($l -match '^\s*font\.height,\s*(\d+)\s*$') { $fontHeight = [double]$Matches[1] }
     }
 }
-$inkS = [System.Drawing.Color]::FromArgb(255, 74, 43, 30)
-$inkK = [System.Drawing.Color]::FromArgb(255, 35, 38, 64)
-$shadowS = [System.Drawing.Color]::FromArgb(255, 236, 219, 196)
-$shadowK = [System.Drawing.Color]::FromArgb(255, 214, 223, 242)
+$inkS = [System.Drawing.Color]::FromArgb(255, 58, 36, 25)
+$inkK = [System.Drawing.Color]::FromArgb(255, 34, 38, 58)
+$shadowS = [System.Drawing.Color]::FromArgb(255, 240, 228, 206)
+$shadowK = [System.Drawing.Color]::FromArgb(255, 214, 223, 243)
 
 $names = if ($Vertical) { @('balloons0', 'balloons2', 'balloonk0', 'balloonk2') }
          else { @('balloons0', 'balloons1', 'balloons2', 'balloonk0', 'balloonk1', 'balloonk2') }

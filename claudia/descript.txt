@@ -34,78 +34,78 @@ wordwrappoint.y,0
 font.name,BIZ UD明朝 Medium,BIZ UDMincho Medium,ＭＳ 明朝,MS Mincho
 font.height,15
 
-font.color.r,74
-font.color.g,43
-font.color.b,30
+font.color.r,58
+font.color.g,36
+font.color.b,25
 
 font.shadowstyle,offset
-font.shadowcolor.r,238
-font.shadowcolor.g,222
-font.shadowcolor.b,199
+font.shadowcolor.r,240
+font.shadowcolor.g,228
+font.shadowcolor.b,206
 
 //--- リンク（アンカー） ---
 anchor.style,underline
-anchor.font.color.r,158
-anchor.font.color.g,62
-anchor.font.color.b,28
-anchor.pen.color.r,197
-anchor.pen.color.g,150
-anchor.pen.color.b,78
+anchor.font.color.r,140
+anchor.font.color.g,59
+anchor.font.color.b,31
+anchor.pen.color.r,185
+anchor.pen.color.g,141
+anchor.pen.color.b,74
 anchor.font.shadowstyle,offset
-anchor.font.shadowcolor.r,238
-anchor.font.shadowcolor.g,222
-anchor.font.shadowcolor.b,199
+anchor.font.shadowcolor.r,240
+anchor.font.shadowcolor.g,228
+anchor.font.shadowcolor.b,206
 
 anchor.notselect.style,underline
-anchor.notselect.font.color.r,158
-anchor.notselect.font.color.g,62
-anchor.notselect.font.color.b,28
-anchor.notselect.pen.color.r,212
-anchor.notselect.pen.color.g,180
-anchor.notselect.pen.color.b,132
+anchor.notselect.font.color.r,140
+anchor.notselect.font.color.g,59
+anchor.notselect.font.color.b,31
+anchor.notselect.pen.color.r,231
+anchor.notselect.pen.color.g,211
+anchor.notselect.pen.color.b,168
 anchor.notselect.font.shadowstyle,offset
-anchor.notselect.font.shadowcolor.r,238
-anchor.notselect.font.shadowcolor.g,222
-anchor.notselect.font.shadowcolor.b,199
+anchor.notselect.font.shadowcolor.r,240
+anchor.notselect.font.shadowcolor.g,228
+anchor.notselect.font.shadowcolor.b,206
 
 anchor.visited.style,underline
-anchor.visited.font.color.r,132
-anchor.visited.font.color.g,92
-anchor.visited.font.color.b,64
-anchor.visited.pen.color.r,192
-anchor.visited.pen.color.g,162
-anchor.visited.pen.color.b,122
+anchor.visited.font.color.r,107
+anchor.visited.font.color.g,78
+anchor.visited.font.color.b,61
+anchor.visited.pen.color.r,227
+anchor.visited.pen.color.g,210
+anchor.visited.pen.color.b,179
 anchor.visited.font.shadowstyle,offset
-anchor.visited.font.shadowcolor.r,238
-anchor.visited.font.shadowcolor.g,222
-anchor.visited.font.shadowcolor.b,199
+anchor.visited.font.shadowcolor.r,240
+anchor.visited.font.shadowcolor.g,228
+anchor.visited.font.shadowcolor.b,206
 
 //--- 選択肢（カーソル） ---
 cursor.style,square
 cursor.blendmethod,none
-cursor.brush.color.r,238
-cursor.brush.color.g,208
-cursor.brush.color.b,146
-cursor.pen.color.r,160
-cursor.pen.color.g,74
-cursor.pen.color.b,38
-cursor.font.color.r,74
-cursor.font.color.g,43
-cursor.font.color.b,30
+cursor.brush.color.r,231
+cursor.brush.color.g,211
+cursor.brush.color.b,168
+cursor.pen.color.r,180
+cursor.pen.color.g,83
+cursor.pen.color.b,47
+cursor.font.color.r,58
+cursor.font.color.g,36
+cursor.font.color.b,25
 cursor.font.shadowstyle,offset
-cursor.font.shadowcolor.r,255
-cursor.font.shadowcolor.g,247
-cursor.font.shadowcolor.b,230
+cursor.font.shadowcolor.r,250
+cursor.font.shadowcolor.g,245
+cursor.font.shadowcolor.b,234
 
 // 未選択の選択肢も、地の文と見分けがつくようにテラコッタにする
 cursor.notselect.style,none
-cursor.notselect.font.color.r,158
-cursor.notselect.font.color.g,62
-cursor.notselect.font.color.b,28
+cursor.notselect.font.color.r,140
+cursor.notselect.font.color.g,59
+cursor.notselect.font.color.b,31
 cursor.notselect.font.shadowstyle,offset
-cursor.notselect.font.shadowcolor.r,238
-cursor.notselect.font.shadowcolor.g,222
-cursor.notselect.font.shadowcolor.b,199
+cursor.notselect.font.shadowcolor.r,240
+cursor.notselect.font.shadowcolor.g,228
+cursor.notselect.font.shadowcolor.b,206
 
 //--- スクロール矢印 ---
 arrow0.x,-21
@@ -124,15 +124,15 @@ sstpmarker.y,-20
 sstpmessage.x,38
 sstpmessage.y,-22
 sstpmessage.font.height,10
-sstpmessage.font.color.r,150
-sstpmessage.font.color.g,108
-sstpmessage.font.color.b,58
+sstpmessage.font.color.r,138
+sstpmessage.font.color.g,117
+sstpmessage.font.color.b,96
 
 //--- 残り時間などのカウンタ ---
 number.font.height,10
-number.font.color.r,150
-number.font.color.g,108
-number.font.color.b,58
+number.font.color.r,138
+number.font.color.g,117
+number.font.color.b,96
 number.xr,-28
 number.y,-20
 
@@ -142,9 +142,9 @@ communicatebox.y,17
 communicatebox.width,362
 communicatebox.height,24
 communicatebox.font.name,BIZ UDゴシック,BIZ UDGothic,ＭＳ ゴシック,MS Gothic
-communicatebox.font.color.r,74
-communicatebox.font.color.g,43
-communicatebox.font.color.b,30
-communicatebox.background.color.r,255
-communicatebox.background.color.g,251
-communicatebox.background.color.b,243
+communicatebox.font.color.r,58
+communicatebox.font.color.g,36
+communicatebox.font.color.b,25
+communicatebox.background.color.r,250
+communicatebox.background.color.g,245
+communicatebox.background.color.b,234
