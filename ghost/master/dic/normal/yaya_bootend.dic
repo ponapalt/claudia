@@ -159,6 +159,7 @@ OnWindowStateMinimize
 	if reference[0] == 'script' || reference[0] == 'sakuraapi'{
 		return ''
 	}
+	CCS.Count('hide')
 
 	'\u\s[10]\0\s[7]あら、わたくしを仕舞い込むおつもり？\w8\1行ってまいります。\e'
 	'\u\s[10]\0\s[6]しばしお休みいたしますわ。\w8\1ごゆるりと。\e'

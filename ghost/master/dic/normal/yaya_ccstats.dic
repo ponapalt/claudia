@@ -23,6 +23,13 @@
 //2. このゴーストが見張りの中で数えるもの（CCS.Count。yaya_claudecode.dic から呼ぶ）
 //   返事待ちに応えた回数、大仕事の完了、長考、Claude が働いた時間、続けて作業した
 //   時間、開いたセッション、休憩を勧めた回数。数え始めたのは ccssince から。
+//   番外の称号のために、なでた・つついた回数（yaya_mouse.dic）、最小化した回数
+//   （yaya_bootend.dic）、功績録を開いた回数も数える。
+//
+//称号は 2 種類。まっとうな称号（CCS.Titles）と、番外の称号（CCS.OddTitles）。
+//番外の称号は功績録の最後の頁に並べ、一度にいくつも届いたら授与のトークを 1 回にまとめる。
+//番外の称号のうち日付や依頼の間を見るものは、それを足す前に読み終えていた履歴を
+//CCS.Backfill で一度だけ読み直して数える（ほかの数には触らない）。
 //
 //「本日」は午前 4 時で区切る（夜更かしの作業を前の日に入れるため。CCS.DayKey）。
 //
@@ -46,11 +53,26 @@ CCS.Init
 		'ccsanswer', 'ccsdone', 'ccslong', 'ccsbusy', 'ccswork', 'ccsworkmax', /
 		'ccsnew', 'ccslate', 'ccsbreak', 'ccsday', /
 		'ccsd_answer', 'ccsd_done', 'ccsd_busy', 'ccsd_work', 'ccsd_new', /
-		'ccsmile', 'ccsanniv' /
+		'ccsmile', 'ccsanniv', 'ccshsn', /
+		'ccsnade', 'ccsrude', 'ccscookie', 'ccshide', 'ccsrecord', /
+		'ccsbpos', 'ccsbprev', /
+		'ccshwkend', 'ccshxmas', 'ccshnewyear', 'ccshfri13', 'ccshrapid', 'ccshreturn' /
 	)
 	_name  = ''
 	_i     = 0
 
+	//---- 番外の称号のために、読み終えた履歴を読み直す範囲（CCS.Backfill）
+	//---- 初めて呼ばれたときの読み終えた位置まで。それより後は CCS.HistLine が数える
+	if !ISVAR('ccsbdone') {
+		ccsbdone = 0
+		ccsbend  = 0
+		if ISVAR('ccshlast') {
+			ccsbend = ccshlast
+		}
+		if ccsbend <= 0 {
+			ccsbdone = 1
+		}
+	}
 	foreach _names ; _name {
 		if !ISVAR(_name) {
 			LETTONAME(_name, 0)
@@ -156,6 +178,11 @@ CCS.RollDay
 //    new    新しいセッションが立ち上がった
 //    late   そのうち夜更け（CC.IsLate）のもの
 //    break  休憩を勧めた
+//    nade   クローディアの頭や髪をなでた（yaya_mouse.dic から）
+//    rude   クローディアの胸元や裾に触れた（yaya_mouse.dic から）
+//    cookie アンソニーのトレイに手を出した（yaya_mouse.dic から）
+//    hide   ユーザーが最小化した（yaya_bootend.dic から）
+//    record 功績録を開いた（CCS.Record から）
 //------------------------------------------------------------------------------
 CCS.Count
 {
@@ -194,6 +221,21 @@ CCS.Count
 		}
 		when 'break' {
 			ccsbreak += _n
+		}
+		when 'nade' {
+			ccsnade += _n
+		}
+		when 'rude' {
+			ccsrude += _n
+		}
+		when 'cookie' {
+			ccscookie += _n
+		}
+		when 'hide' {
+			ccshide += _n
+		}
+		when 'record' {
+			ccsrecord += _n
 		}
 	}
 }
@@ -299,6 +341,7 @@ CCS.HistLine
 {
 	_m    = IARRAY
 	_ms   = 0
+	_prev = 0
 	_sec  = 0
 	_t    = IARRAY
 	_key  = 0
@@ -315,10 +358,16 @@ CCS.HistLine
 	if _ms <= ccshlast {
 		return
 	}
+	_prev    = ccshlast / 1000
 	ccshlast = _ms
 	_sec     = _ms / 1000
+	CCS.HistOdd(_sec, _prev)
 
 	ccshn += 1
+	//---- ゴーストが数え始めてからの依頼（セッションの数と比べるため）
+	if _sec >= ccssince {
+		ccshsn += 1
+	}
 	if ccshfirst <= 0 || _sec < ccshfirst {
 		ccshfirst = _sec
 	}
@@ -357,6 +406,98 @@ CCS.HistLine
 		}
 		else {
 			ccshpcount[_i] += 1
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+//番外の称号のために、依頼 1 件の日時を数える。値は返さない
+//  _argv[0] この依頼の Unix 秒 / _argv[1] ひとつ前の依頼の Unix 秒（無ければ 0）
+//------------------------------------------------------------------------------
+CCS.HistOdd
+{
+	_sec  = TOINT(_argv[0])
+	_prev = TOINT(_argv[1])
+	_t    = GETTIME(_sec)
+	_d    = GETTIME(_sec - 14400)
+
+	//---- 土日（業務日で。金曜の深夜は金曜のうち）
+	if _d[3] == 0 || _d[3] == 6 {
+		ccshwkend += 1
+	}
+	//---- 日付はカレンダーのまま
+	if _t[1] == 12 && (_t[2] == 24 || _t[2] == 25) {
+		ccshxmas += 1
+	}
+	if _t[1] == 1 && _t[2] == 1 {
+		ccshnewyear += 1
+	}
+	if _t[2] == 13 && _t[3] == 5 {
+		ccshfri13 += 1
+	}
+	//---- 前の依頼からの間
+	if _prev > 0 {
+		if _sec - _prev <= 3 {
+			ccshrapid += 1
+		}
+		if _sec - _prev >= 30 * 86400 {
+			ccshreturn += 1
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+//番外の称号を足す前に読み終えていた履歴を、番外の分だけ数え直す。値は返さない
+//ほかの数（ccshn など）には触らない。ccsbend の時刻の行まで読んだら終わり
+//  _argv[0] 一度に読む行数の上限
+//------------------------------------------------------------------------------
+CCS.Backfill
+{
+	_path = CCS.HistPath
+	_size = 0
+	_line = ''
+	_ms   = 0
+	_n    = 0
+	_pos  = 0
+
+	CCS.Init
+	if ccsbdone == 1 {
+		return
+	}
+	if STRLEN(_path) > 0 {
+		_size = FSIZE(_path)
+	}
+	//---- 履歴が無い、または作り直されて縮んだときは、あきらめる
+	if _size <= 0 || _size < ccsbpos {
+		ccsbdone = 1
+		return
+	}
+	if FOPEN(_path, 'r') {
+		if ccsbpos > 0 {
+			void FSEEK(_path, ccsbpos, 'SEEK_SET')
+		}
+		while _n < _argv[0] {
+			_line = FREAD(_path)
+			if _line == -1 {
+				ccsbdone = 1
+				break
+			}
+			_n++
+			if !RE_SEARCH(_line, '"timestamp":([0-9]+)') {
+				continue
+			}
+			_ms = TOINT(RE_GETSTR(0)[1])
+			if _ms > ccsbend {
+				ccsbdone = 1
+				break
+			}
+			CCS.HistOdd(_ms / 1000, ccsbprev)
+			ccsbprev = _ms / 1000
+		}
+		_pos = FTELL(_path)
+		void FCLOSE(_path)
+		if _pos > 0 {
+			ccsbpos = _pos
 		}
 	}
 }
@@ -536,6 +677,107 @@ CCS.Titles
 	_list
 }
 
+//------------------------------------------------------------------------------
+//番外の称号。書式は CCS.Titles と同じ。功績録では別の頁に並べる
+//------------------------------------------------------------------------------
+CCS.OddTitles
+{
+	_list  = IARRAY
+	_top   = SPLIT(CCS.TopProject, '|#|')
+	_name  = ''
+	_lname = ''
+	_temp  = ''
+	_desk  = 0
+
+	//---- 時刻
+	if ccshhour[4] >= 30 {
+		_list ,= 'o.hour4|#|午前四時の住人|#|四時からの依頼は、\w9\n翌日の分として数えております。'
+	}
+	if ccshhour[12] >= 100 {
+		_list ,= 'o.lunch|#|昼餉を忘れし者|#|昼食はお済みでしょうか。'
+	}
+	if ccshhour[15] >= 100 {
+		_list ,= 'o.tea|#|三時のお茶を抜く者|#|クッキーは、\w9\nトレイに残ったままでございます。'
+	}
+
+	//---- 日付と曜日
+	if ccshxmas >= 1 {
+		_list ,= 'o.xmas|#|聖夜に依頼を下せし者|#|サンタの代わりに、\w9\nClaude が参りました。'
+	}
+	if ccshnewyear >= 1 {
+		_list ,= 'o.newyear|#|元日から働く者|#|おせちより先に、\w9\n依頼でございます。'
+	}
+	if ccshfri13 >= 1 {
+		_list ,= 'o.fri13|#|十三日の金曜日に働きし者|#|何事もなく、何よりでございました。'
+	}
+	if ccshwkend >= 300 {
+		_list ,= 'o.weekend|#|休日返上の人|#|土日も登城なさっております。'
+	}
+
+	//---- 依頼の間
+	if ccshrapid >= 100 {
+		_list ,= 'o.rapid|#|矢継ぎ早の依頼主|#|返事を待たずに、\w9\n次の依頼でございます。'
+	}
+	if ccshreturn >= 1 {
+		_list ,= 'o.return|#|帰ってきた放蕩者|#|おかえりなさいませ。\w9\nお部屋はそのままでございます。'
+	}
+
+	//---- 領地の治め方
+	if ccshn >= 300 && ARRAYSIZE(_top) >= 2 {
+		if TOINT(_top[1]) * 10 >= ccshn * 9 {
+			_list ,= 'o.ichizu|#|一途な依頼主|#|ひとつの領地を、\w9\n脇目もふらずお耕しでございます。'
+		}
+		elseif ARRAYSIZE(ccshpname) >= 10 && TOINT(_top[1]) * 5 < ccshn {
+			_list ,= 'o.utsurigi|#|移り気な領主|#|どの領地にも、\w9\n少しずつお顔を出されます。'
+		}
+	}
+	//---- 領地の名前
+	foreach ccshpname ; _name {
+		_lname = TOLOWER(_name)
+		if STRLEN(_temp) == 0 && RE_SEARCH(_lname, '^test|test$|^(tmp|temp|hoge|fuga|piyo|foo|untitled|sandbox|scratch|playground)$|^新しいフォルダー') {
+			_temp = _name
+		}
+		if _lname == 'desktop' || _name == 'デスクトップ' {
+			_desk = 1
+		}
+	}
+	if STRLEN(_temp) > 0 {
+		_list ,= 'o.temp|#|' + _temp + 'の仮領主|#|いつ本当の名を\w9\nお付けになるのでしょう。'
+	}
+	if _desk {
+		_list ,= 'o.desk|#|机上の領主|#|デスクトップで直接とは。\w9\n散らかりますよ。'
+	}
+
+	//---- セッション
+	if ccsnew >= 30 && ccshsn < ccsnew * 2 {
+		_list ,= 'o.guest|#|一言で去る客人|#|お茶をお出しする前に、\w9\nお帰りになります。'
+	}
+	if ccslong >= 100 {
+		_list ,= 'o.long100|#|悠久を待つ者|#|紅茶が百度冷めました。'
+	}
+	if ccsbreak >= 50 {
+		_list ,= 'o.break50|#|聞き流しの達人|#|休憩のおすすめ、\w9\n五十回目でございます。'
+	}
+
+	//---- わたくしどもへのふるまい
+	if ccsnade >= 30 {
+		_list ,= 'o.nade|#|令嬢の御髪に触れし不敬者|#|お嬢様は、まんざらでも‥\w5‥\w5\w9\n失礼いたしました。'
+	}
+	if ccsrude >= 10 {
+		_list ,= 'o.rude|#|成敗されし不埒者|#|私の台帳に、\w9\nお名前が十度載りました。'
+	}
+	if ccscookie >= 30 {
+		_list ,= 'o.cookie|#|クッキー泥棒|#|トレイのクッキーが、\w9\n数えるたびに減っております。'
+	}
+	if ccshide >= 30 {
+		_list ,= 'o.hide|#|令嬢を仕舞い込む者|#|お嬢様、窮屈だと\w9\nお嘆きでございました。'
+	}
+	if ccsrecord >= 20 {
+		_list ,= 'o.record|#|称号を気にしすぎる者|#|功績録をお開きになるのは、\w9\nこれで二十回目でございます。'
+	}
+	_list
+}
+
 
 //******************************************************************************
 //節目のお祝い
@@ -547,7 +789,7 @@ CCS.Titles
 //------------------------------------------------------------------------------
 CCS.QuietMilestones
 {
-	_list = CCS.Titles
+	_list = (CCS.Titles, CCS.OddTitles)
 	_t    = ''
 
 	ccsmile   = ccshn / 1000
@@ -568,6 +810,9 @@ CCS.Minute
 	//---- 最初の読み込みは重いので、1 分に 1500 行ずつ
 	if CCS.HistPending {
 		CCS.HistRead(1500)
+	}
+	elseif ccsbdone != 1 {
+		CCS.Backfill(1500)
 	}
 	//---- 履歴のファイルが無いときも、ここで祝う準備を済ませる
 	if ccshready != 1 && !CCS.HistPending {
@@ -593,6 +838,7 @@ CCS.Milestone
 	_now   = GETTIME
 	_first = IARRAY
 	_list  = IARRAY
+	_new   = IARRAY
 	_t     = ''
 	_r     = IARRAY
 
@@ -612,6 +858,25 @@ CCS.Milestone
 		if ASEARCH(_r[0], ccstitles) < 0 {
 			ccstitles ,= _r[0]
 			return CCS.TalkTitle(_r[1], _r[2])
+		}
+	}
+	//---- 新しい番外の称号。履歴を読み直している間は待ち、一度に届いた分はまとめて
+	if ccsbdone == 1 {
+		_list = CCS.OddTitles
+		_new  = IARRAY
+		foreach _list ; _t {
+			_r = SPLIT(_t, '|#|')
+			if ASEARCH(_r[0], ccstitles) < 0 {
+				ccstitles ,= _r[0]
+				_new      ,= _t
+			}
+		}
+		if ARRAYSIZE(_new) == 1 {
+			_r = SPLIT(_new[0], '|#|')
+			return CCS.TalkOddTitle(_r[1], _r[2])
+		}
+		elseif ARRAYSIZE(_new) >= 2 {
+			return CCS.TalkOddTitles(SPLIT(_new[0], '|#|')[1], ARRAYSIZE(_new))
 		}
 	}
 
@@ -638,6 +903,19 @@ CCS.TalkTitle
 	'\u\s[10]\0\s[5]おーっほっほっほ！\w9\nまた功績が増えましたわね。\w8\1称号「' + _argv[0] + '」でございます。\w9\n' + _argv[1] + '\e'
 }
 
+//---- 新しい番外の称号。引数は CCS.TalkTitle と同じ
+CCS.TalkOddTitle
+{
+	'\u\s[10]\0\s[0]あら、アンソニーが\w9\n何か言いたそうですわ。\w8\1番外の称号、\w9\n「' + _argv[0] + '」でございます。\w9\n' + _argv[1] + '\w8\0\s[26]\n\n‥\w5‥\w5受け取っておきなさいな、\w9\n' + username + '。\e'
+	'\u\s[10]\0\s[7]‥\w5‥\w5アンソニー、\w9\nまた妙なものを数えましたわね？\w8\1番外の称号でございます。\w9\n「' + _argv[0] + '」。\w9\n' + _argv[1] + '\w8\0\s[1]\n\nそんなもの、\w9\n授けた覚えはありませんわ。\e'
+}
+
+//---- 新しい番外の称号が一度にいくつも。_argv[0] 最初の称号 / _argv[1] 数
+CCS.TalkOddTitles
+{
+	'\u\s[10]\0\s[7]‥\w5‥\w5アンソニー、\w9\nその記録帳の余白は何ですの？\w8\1番外の称号が' + _argv[1] + '件、\w9\n溜まっております。\w8\0\s[2]\n\nそんなに！？\w8\1\n\n「' + _argv[0] + '」ほか、\w9\n功績録の最後の頁に並べました。\e'
+}
+
 //---- 依頼の千件ごと。_argv[0] 件数
 CCS.TalkThousand : nonoverlap
 {
@@ -658,10 +936,13 @@ CCS.Record
 {
 	_talk = ''
 
-	CCS.RollDay
+	CCS.Count('record')
 	//---- 読み残しがあれば、ここで全部読む
 	if CCS.HistPending {
 		CCS.HistRead(100000)
+	}
+	if ccsbdone != 1 {
+		CCS.Backfill(100000)
 	}
 	if ccshn > 0 {
 		_talk += CCS.PageHistory + '\x' + CCS.PageLand + '\x'
@@ -670,6 +951,9 @@ CCS.Record
 		_talk += '\u\s[10]\0\s[4]\b[2]Claude Code の依頼の記録が\w9\n見つかりませんわ。\w8\1わたくしどもで数えた分だけ\w9\nお読みいたします。\w8\0\n\n'
 	}
 	_talk += CCS.PageWatch + '\x' + CCS.PageTitles
+	if ARRAYSIZE(CCS.OddTitles) > 0 {
+		_talk += '\x' + CCS.PageOddTitles
+	}
 	_talk
 }
 
@@ -769,6 +1053,21 @@ CCS.PageTitles
 	else {
 		_talk += '\0\s[25]\n謹んでお受けなさいな。\w8\1おめでとうございます。'
 	}
+	_talk
+}
+
+//---- 5 頁目: 番外の称号（1 つも無ければ頁ごと出さない）
+CCS.PageOddTitles
+{
+	_list = CCS.OddTitles
+	_t    = ''
+	_talk = ''
+
+	_talk = '\u\s[10]\0\s[7]\b[2]‥\w5‥\w5それから、アンソニーが\w9\n記録帳の余白に\w9\n妙なものを書いていましたわ。\w8\n\n\_q'
+	foreach _list ; _t {
+		_talk += '「' + SPLIT(_t, '|#|')[1] + '」\n'
+	}
+	_talk += '\_q\w8\1番外の称号でございます。\w8\0\s[1]\nこんなもの、\w9\n授けた覚えはありませんわ。\w8\1\n\nすでにお渡し済みでございます。'
 	_talk
 }
 

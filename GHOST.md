@@ -40,7 +40,7 @@
 | `yaya_string.dic` | メニュー項目やおすすめサイトなどのリソース（`On_*`） |
 | `yaya_word.dic` | トーク中に埋め込む単語（`%(tea)` 紅茶、`%(sweets)` お菓子、`%(food)` 料理） |
 | `yaya_claudecode.dic` | Claude Code のセッションの見張り（`CC.*`）。`%USERPROFILE%\.claude\sessions\*.json` を `\![execute,filewatch]` で見張り（`OnClaudeCodeDir` / `OnClaudeCodeFile`）、返事待ちのベルと 5 分ごとのリマインダ、長考と完了、新しいセッション、休憩のすすめ（続けて 2 時間ごと）、通知領域のアイコンの切り替えを行う。見張りは `OnBoot` の `CC.Start` で立てる。詳しい仕組みは先頭のコメントにある |
-| `yaya_ccstats.dic` | Claude Code の功績録（`CCS.*`）。依頼の履歴 `%USERPROFILE%\.claude\history.jsonl`（時刻と作業フォルダだけを読み、本文は使わない）と、`yaya_claudecode.dic` の見張りから `CCS.Count` で数えた回数を合わせて、メニュー「これまでの功績は？」の功績録と称号、本日の業務報告（午前 4 時で区切る）、終了時のひとこと（`OnClose`）、節目のお祝い（記念日、新しい称号、依頼の千件ごと。`CC.Minute` から）を出す。履歴は読み終えた位置を覚えて増えた分だけ読む。詳しい仕組みは先頭のコメントにある |
+| `yaya_ccstats.dic` | Claude Code の功績録（`CCS.*`）。依頼の履歴 `%USERPROFILE%\.claude\history.jsonl`（時刻と作業フォルダだけを読み、本文は使わない）と、`yaya_claudecode.dic` の見張りから `CCS.Count` で数えた回数を合わせて、メニュー「これまでの功績は？」の功績録と称号、本日の業務報告（午前 4 時で区切る）、終了時のひとこと（`OnClose`）、節目のお祝い（記念日、新しい称号、依頼の千件ごと。`CC.Minute` から）を出す。番外の称号（`CCS.OddTitles`。時刻や日付、領地の名前、なでた・つついた回数など）は功績録の最後の頁に並べる。履歴は読み終えた位置を覚えて増えた分だけ読む。詳しい仕組みは先頭のコメントにある |
 | `yaya_homeurl.dic` | ネットワーク更新の URL（`On_homeurl`） |
 | `yaya_tmpl_util.dic` | テンプレートの内部処理（`AYATEMPLATE.*`）。必要なとき以外は触らない |
 
