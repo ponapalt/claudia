@@ -20,11 +20,11 @@ file,ghost/master/yaya.txtc720df5cb99a1e84891b871c99a712absize=1993date=2026-
 file,ghost/master/yaya_emerg.txtd9ee78e2068ff80d809325bd4fa8228bsize=1055date=2026-09-19T18:20:56
 file,ghost/master/dic/emerg/yaya_emerg_dic.dic3f77010b4c5b819a9709f0277a144560size=689date=2026-09-19T18:20:56
 file,ghost/master/dic/emerg/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
-file,ghost/master/dic/normal/yaya_aitalk.dic3e9905ff4fa4fec6b33d5d7abb8900c6size=19222date=2026-09-23T08:19:01
+file,ghost/master/dic/normal/yaya_aitalk.dic5a4961a516a836b909c622e4da4b773bsize=28274date=2026-09-25T09:24:20
 file,ghost/master/dic/normal/yaya_bootend.dic21d9603b7a0af6f9abe6c84412fd1424size=9845date=2026-09-22T14:37:18
 file,ghost/master/dic/normal/yaya_change.dicf3ef782708ded6a21af1d0019017a8basize=11170date=2026-09-22T07:28:29
 file,ghost/master/dic/normal/yaya_claudecode.dic0f9998a945f5cab4e5c32dbac37e21f1size=45335date=2026-09-22T16:01:07
-file,ghost/master/dic/normal/yaya_communicate.dic69113c27236708afa2b21744cf5c5cd3size=4409date=2026-09-19T18:20:56
+file,ghost/master/dic/normal/yaya_communicate.dic9105b2205aa8fa9d79c0446ef133f620size=15468date=2026-09-25T09:22:54
 file,ghost/master/dic/normal/yaya_etc.dic9b02872ab7f19929f8572b74f5894b18size=28236date=2026-09-22T07:28:31
 file,ghost/master/dic/normal/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
 file,ghost/master/dic/normal/yaya_menu.dic39743b35fd8b9dcb1be28c4fc239468fsize=10194date=2026-09-22T16:01:08
