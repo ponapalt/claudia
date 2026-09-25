@@ -42,6 +42,8 @@ OpenMenu
 		AYATEMPLATE.MenuItem("Claude Code の様子は？","Menu_CLAUDECODE")
 	}
 	--
+	AYATEMPLATE.MenuItem("これまでの功績は？","Menu_CCSTATS")
+	--
 	AYATEMPLATE.MenuItem("設定","Menu_CONFIG")
 	--
 	AYATEMPLATE.MenuItem("なんでもない","Menu_CANCEL",150)
@@ -287,6 +289,42 @@ Menu_CLAUDECODE
 	AYATEMPLATE.MenuItem("見張りを立て直す","Menu_CCWATCH",200)
 	--
 	AYATEMPLATE.MenuItem("戻る","OpenMenu")
+}
+
+//---- 功績録（yaya_ccstats.dic）。頁は \x で分かれている
+Menu_CCSTATS
+{
+	CCS.Record
+	--
+	//---- 最後はアンソニーが話しているので、選択肢はクローディアのバルーンに出す
+	'\w8\0\n'
+	--
+	AYATEMPLATE.MenuItem("本日の業務報告は？","Menu_CCTODAY")
+	--
+	AYATEMPLATE.MenuItem("戻る","OpenMenu")
+	--
+	AYATEMPLATE.MenuItem("閉じる","Menu_CCCLOSE")
+}
+
+//---- 本日の業務報告（yaya_ccstats.dic）
+Menu_CCTODAY
+{
+	CCS.Today.Report
+	--
+	'\w8\0\n'
+	--
+	AYATEMPLATE.MenuItem("これまでの功績は？","Menu_CCSTATS")
+	--
+	AYATEMPLATE.MenuItem("戻る","OpenMenu")
+	--
+	AYATEMPLATE.MenuItem("閉じる","Menu_CCCLOSE")
+}
+
+//---- 功績録と業務報告を閉じる
+Menu_CCCLOSE
+{
+	'\0\s[26]よろしくてよ。\w9\nこれからも励みなさいな。\e'
+	'\0\s[0]記録はわたくしどもが\w9\nつけておきますわ。\e'
 }
 
 //---- filewatch を登録し直す（辞書を読み込み直したあとなど）

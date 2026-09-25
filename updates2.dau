@@ -20,13 +20,14 @@ ghost/master/yaya_emerg.txtd9ee78e2068ff80d809325bd4fa8228bsize=1055date=2026
 ghost/master/dic/emerg/yaya_emerg_dic.dic3f77010b4c5b819a9709f0277a144560size=689date=2026-09-19T18:20:56
 ghost/master/dic/emerg/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
 ghost/master/dic/normal/yaya_aitalk.dicfcc87524c711ee08e5cfb2d8484dd36dsize=28336date=2026-09-25T09:40:11
-ghost/master/dic/normal/yaya_bootend.dic21d9603b7a0af6f9abe6c84412fd1424size=9845date=2026-09-22T14:37:18
+ghost/master/dic/normal/yaya_bootend.dicc0959e2a1404edccfb7e57682100e2a4size=9967date=2026-09-25T13:59:43
+ghost/master/dic/normal/yaya_ccstats.dice37e40add872453c30f5e2f502b71569size=28284date=2026-09-25T14:05:14
 ghost/master/dic/normal/yaya_change.dicf3ef782708ded6a21af1d0019017a8basize=11170date=2026-09-22T07:28:29
-ghost/master/dic/normal/yaya_claudecode.dic2831f441cbf34ad85471affacd23c7a9size=53304date=2026-09-25T09:39:57
+ghost/master/dic/normal/yaya_claudecode.dic7e816439be43cb15f6a0c58114eccdedsize=54350date=2026-09-25T13:59:28
 ghost/master/dic/normal/yaya_communicate.dic9105b2205aa8fa9d79c0446ef133f620size=15468date=2026-09-25T09:22:54
 ghost/master/dic/normal/yaya_etc.dic9b02872ab7f19929f8572b74f5894b18size=28236date=2026-09-22T07:28:31
 ghost/master/dic/normal/yaya_homeurl.dic191373db08f669ff7cf3f4501ec937a6size=552date=2026-09-19T18:20:56
-ghost/master/dic/normal/yaya_menu.dic53cf27b50b9b852210f3e8ef02edb109size=10914date=2026-09-25T09:40:16
+ghost/master/dic/normal/yaya_menu.dic65437686faf3bf6c8fa0934f3a57516fsize=11879date=2026-09-25T14:00:31
 ghost/master/dic/normal/yaya_mouse.dicf14ff6ae5623d5fd605a6e6b7cfa87f3size=12169date=2026-09-25T09:40:46
 ghost/master/dic/normal/yaya_string.dic0dcacb233492294865ece8deee552d81size=6338date=2026-09-22T15:52:38
 ghost/master/dic/normal/yaya_tmpl_util.dic070029bec9980ceb330526cef6362661size=9230date=2026-09-19T18:20:56

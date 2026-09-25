@@ -109,6 +109,9 @@ OnClose
 {
 	'\1\s[10]'
 	--
+	//---- 本日 Claude Code に依頼していたら、その数をひとこと（yaya_ccstats.dic）
+	CCS.CloseReport
+	--
 	//この部分には\eつけないでね！
 	_timeslot = GetTimeSlot
 	if _timeslot == '朝'{

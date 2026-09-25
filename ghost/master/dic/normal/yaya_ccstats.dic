@@ -1,0 +1,835 @@
+//******************************************************************************
+// 悪役令嬢クローディア
+// Claude Code の功績録辞書
+//******************************************************************************
+//
+//これまでの働きを数えて、功績録、称号、節目のお祝い、本日の業務報告として読み上げる。
+//好かれ具合ではなく、やってきたことを数えて称える。数える元は 2 つ。
+//
+//1. Claude Code の依頼の履歴 %USERPROFILE%\.claude\history.jsonl（CCS.Hist*）
+//   送った依頼が 1 行に 1 件ずつ入っている。中身はこういう 1 行の JSON。
+//
+//     {"display":"...","pastedContents":{...},"timestamp":1790311762291,
+//      "project":"C:\\path\\to\\project","sessionId":"..."}
+//
+//   数えるのに使うのは timestamp（ミリ秒）と project だけ。display（依頼の本文）は
+//   読み上げない。Claude Code の内部のファイルで仕様は公開されていないので、形が
+//   変わって読めなくなったら、2 の数字だけで話す。
+//   行は時刻の順に足されていくので、読み終えた位置（ccshpos）を覚えておき、次からは
+//   増えた分だけを読む。位置がずれても数え直さないよう、最後に数えた行の時刻
+//   （ccshlast）より古い行は飛ばす。最初の読み込みは重いので、OnMinuteChange から
+//   少しずつ読み進める（CCS.Minute）。
+//
+//2. このゴーストが見張りの中で数えるもの（CCS.Count。yaya_claudecode.dic から呼ぶ）
+//   返事待ちに応えた回数、大仕事の完了、長考、Claude が働いた時間、続けて作業した
+//   時間、開いたセッション、休憩を勧めた回数。数え始めたのは ccssince から。
+//
+//「本日」は午前 4 時で区切る（夜更かしの作業を前の日に入れるため。CCS.DayKey）。
+//
+//注意: YAYA では関数を裸の文で呼ぶと、その戻り値もブロックの出力候補になる。
+//副作用だけの関数（CCS.Init、CCS.Count、CCS.HistRead など）は値を返さないように書いてある。
+//******************************************************************************
+
+
+//******************************************************************************
+//下ごしらえ
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//変数の初期値を入れる。値は返さない（裸で呼ぶため）
+//------------------------------------------------------------------------------
+CCS.Init
+{
+	_names = ( /
+		'ccshpos', 'ccshlast', 'ccshn', 'ccshfirst', 'ccshdays', 'ccshdaykey', 'ccshdayn', /
+		'ccshstreak', 'ccshstreakmax', 'ccshdaymax', 'ccshdaymaxkey', 'ccshready', /
+		'ccsanswer', 'ccsdone', 'ccslong', 'ccsbusy', 'ccswork', 'ccsworkmax', /
+		'ccsnew', 'ccslate', 'ccsbreak', 'ccsday', /
+		'ccsd_answer', 'ccsd_done', 'ccsd_busy', 'ccsd_work', 'ccsd_new', /
+		'ccsmile', 'ccsanniv' /
+	)
+	_name  = ''
+	_i     = 0
+
+	foreach _names ; _name {
+		if !ISVAR(_name) {
+			LETTONAME(_name, 0)
+		}
+	}
+	if !ISVAR('ccssince') || ccssince <= 0 {
+		ccssince = GETSECCOUNT
+	}
+	//---- 時刻ごとの依頼の数（0 時台から 23 時台まで）
+	if ARRAYSIZE(ccshhour) != 24 {
+		ccshhour = IARRAY
+		for _i = 0 ; _i < 24 ; _i++ {
+			ccshhour ,= 0
+		}
+	}
+	//---- 作業フォルダの名前と、その依頼の数（同じ並び）
+	if !ISVAR('ccshpname') || !ISVAR('ccshpcount') {
+		ccshpname  = IARRAY
+		ccshpcount = IARRAY
+	}
+	//---- すでに授けた称号の ID
+	if !ISVAR('ccstitles') {
+		ccstitles = IARRAY
+	}
+}
+
+//------------------------------------------------------------------------------
+//業務日の番号（20260925 の形）。午前 4 時までは前の日として数える
+//  _argv[0] Unix 秒
+//------------------------------------------------------------------------------
+CCS.DayKey
+{
+	_t = GETTIME(_argv[0] - 14400)
+	_t[0] * 10000 + _t[1] * 100 + _t[2]
+}
+
+//---- 今日の業務日の番号
+CCS.Today
+{
+	CCS.DayKey(GETSECCOUNT)
+}
+
+//---- 業務日の番号を「2026年9月25日」にする
+CCS.DateText
+{
+	_key = TOINT(_argv[0])
+	TOINT(_key / 10000) + '年' + TOINT((_key / 100) % 100) + '月' + (_key % 100) + '日'
+}
+
+//---- Unix 秒を「2026年9月25日」にする（こちらは午前 4 時で区切らない）
+CCS.SecDate
+{
+	_t = GETTIME(_argv[0])
+	_t[0] + '年' + _t[1] + '月' + _t[2] + '日'
+}
+
+//------------------------------------------------------------------------------
+//数を 3 桁ごとに区切る（6829 → 6,829）
+//------------------------------------------------------------------------------
+CCS.Comma
+{
+	_s    = TOSTR(TOINT(_argv[0]))
+	_text = ''
+
+	while STRLEN(_s) > 3 {
+		_text = ',' + SUBSTR(_s, STRLEN(_s) - 3, 3) + _text
+		_s    = SUBSTR(_s, 0, STRLEN(_s) - 3)
+	}
+	_s + _text
+}
+
+//------------------------------------------------------------------------------
+//日が変わっていたら、本日の分を 0 に戻す。値は返さない
+//------------------------------------------------------------------------------
+CCS.RollDay
+{
+	_today = CCS.Today
+
+	CCS.Init
+	if ccsday != _today {
+		ccsday      = _today
+		ccsd_answer = 0
+		ccsd_done   = 0
+		ccsd_busy   = 0
+		ccsd_work   = 0
+		ccsd_new    = 0
+	}
+}
+
+
+//******************************************************************************
+//ゴーストが自分で数えるもの（yaya_claudecode.dic から呼ぶ）
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//数を足す。値は返さない（裸で呼ぶため）
+//  _argv[0] 何を数えるか / _argv[1] 足す数（秒数など。省略すると 1）
+//    answer 返事待ちに応えた（waiting から busy に戻った）
+//    done   大仕事（90 秒以上）が片付いた
+//    long   10 分を超える長考が片付いた
+//    busy   Claude が働いた秒数
+//    work   続けて作業していた秒数（CC.MarkWork の区切りの中で）
+//    new    新しいセッションが立ち上がった
+//    late   そのうち夜更け（CC.IsLate）のもの
+//    break  休憩を勧めた
+//------------------------------------------------------------------------------
+CCS.Count
+{
+	_n = 1
+
+	if _argc >= 2 {
+		_n = TOINT(_argv[1])
+	}
+	CCS.RollDay
+	case _argv[0] {
+		when 'answer' {
+			ccsanswer   += _n
+			ccsd_answer += _n
+		}
+		when 'done' {
+			ccsdone   += _n
+			ccsd_done += _n
+		}
+		when 'long' {
+			ccslong += _n
+		}
+		when 'busy' {
+			ccsbusy   += _n
+			ccsd_busy += _n
+		}
+		when 'work' {
+			ccswork   += _n
+			ccsd_work += _n
+		}
+		when 'new' {
+			ccsnew   += _n
+			ccsd_new += _n
+		}
+		when 'late' {
+			ccslate += _n
+		}
+		when 'break' {
+			ccsbreak += _n
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+//続けて作業した時間の最長記録を更新する。値は返さない
+//  _argv[0] 今の区切りで続けて作業している秒数
+//------------------------------------------------------------------------------
+CCS.WorkSpan
+{
+	CCS.Init
+	if _argv[0] > ccsworkmax {
+		ccsworkmax = _argv[0]
+	}
+}
+
+
+//******************************************************************************
+//依頼の履歴（history.jsonl）
+//******************************************************************************
+
+//---- 履歴のファイルの場所。見つからなければ空文字列
+CCS.HistPath
+{
+	_home = GETENV('USERPROFILE')
+	_path = ''
+	if STRLEN(_home) > 0 {
+		_path = REPLACE(_home, '\', '/') + '/.claude/history.jsonl'
+	}
+	_path
+}
+
+//------------------------------------------------------------------------------
+//読み残しがあれば 1
+//------------------------------------------------------------------------------
+CCS.HistPending
+{
+	_path = CCS.HistPath
+	_size = 0
+	_is   = 0
+
+	CCS.Init
+	if STRLEN(_path) > 0 {
+		_size = FSIZE(_path)
+		if _size > 0 && _size != ccshpos {
+			_is = 1
+		}
+	}
+	_is
+}
+
+//------------------------------------------------------------------------------
+//履歴を読み進める。値は返さない（裸で呼ぶため）
+//  _argv[0] 一度に読む行数の上限
+//------------------------------------------------------------------------------
+CCS.HistRead
+{
+	_path  = CCS.HistPath
+	_size  = 0
+	_line  = ''
+	_n     = 0
+	_pos   = 0
+
+	CCS.Init
+	if STRLEN(_path) > 0 {
+		_size = FSIZE(_path)
+	}
+	if _size > 0 && _size != ccshpos {
+		//---- ファイルが縮んだ（作り直された）ら頭から。数えた分は ccshlast で飛ばす
+		if _size < ccshpos {
+			ccshpos = 0
+		}
+		if FOPEN(_path, 'r') {
+			if ccshpos > 0 {
+				void FSEEK(_path, ccshpos, 'SEEK_SET')
+			}
+			while _n < _argv[0] {
+				_line = FREAD(_path)
+				if _line == -1 {
+					break
+				}
+				CCS.HistLine(_line)
+				_n++
+			}
+			_pos = FTELL(_path)
+			void FCLOSE(_path)
+			if _pos > 0 {
+				ccshpos = _pos
+			}
+		}
+		//---- 最初に全部を読み終えたら、それまでの節目は祝わずに済ませる
+		if ccshready != 1 && ccshpos == _size {
+			ccshready = 1
+			CCS.QuietMilestones
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+//履歴の 1 行を数える。値は返さない
+//------------------------------------------------------------------------------
+CCS.HistLine
+{
+	_m    = IARRAY
+	_ms   = 0
+	_sec  = 0
+	_t    = IARRAY
+	_key  = 0
+	_name = ''
+	_i    = 0
+
+	//---- 行の途中から読んだときや、形が変わったときは数えない
+	if !RE_SEARCH(_argv[0], '"timestamp":([0-9]+),"project":"([^"]*)"') {
+		return
+	}
+	_m  = RE_GETSTR(0)
+	_ms = TOINT(_m[1])
+	//---- もう数えた行
+	if _ms <= ccshlast {
+		return
+	}
+	ccshlast = _ms
+	_sec     = _ms / 1000
+
+	ccshn += 1
+	if ccshfirst <= 0 || _sec < ccshfirst {
+		ccshfirst = _sec
+	}
+	_t = GETTIME(_sec)
+	ccshhour[_t[4]] += 1
+
+	//---- 登城した日と、続けて登城した日数
+	_key = CCS.DayKey(_sec)
+	if _key != ccshdaykey {
+		ccshdays += 1
+		if ccshdaykey == CCS.DayKey(_sec - 86400) {
+			ccshstreak += 1
+		}
+		else {
+			ccshstreak = 1
+		}
+		if ccshstreak > ccshstreakmax {
+			ccshstreakmax = ccshstreak
+		}
+		ccshdaykey = _key
+		ccshdayn   = 0
+	}
+	ccshdayn += 1
+	if ccshdayn > ccshdaymax {
+		ccshdaymax    = ccshdayn
+		ccshdaymaxkey = _key
+	}
+
+	//---- 作業フォルダごとの数
+	_name = CC.Label('', _m[2])
+	if STRLEN(_name) > 0 {
+		_i = ASEARCH(_name, ccshpname)
+		if _i < 0 {
+			ccshpname  ,= _name
+			ccshpcount ,= 1
+		}
+		else {
+			ccshpcount[_i] += 1
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+//本日の依頼の数
+//------------------------------------------------------------------------------
+CCS.TodayRequests
+{
+	_n = 0
+	if ccshdaykey == CCS.Today {
+		_n = ccshdayn
+	}
+	_n
+}
+
+//------------------------------------------------------------------------------
+//いちばん依頼の多い作業フォルダ。「名前|#|数」、無ければ空文字列
+//------------------------------------------------------------------------------
+CCS.TopProject
+{
+	_best = -1
+	_i    = 0
+	_text = ''
+
+	for _i = 0 ; _i < ARRAYSIZE(ccshpcount) ; _i++ {
+		if _best < 0 || ccshpcount[_i] > ccshpcount[_best] {
+			_best = _i
+		}
+	}
+	if _best >= 0 {
+		_text = ccshpname[_best] + '|#|' + ccshpcount[_best]
+	}
+	_text
+}
+
+//------------------------------------------------------------------------------
+//いちばん依頼の多い時刻（時）。履歴が無ければ -1
+//------------------------------------------------------------------------------
+CCS.PeakHour
+{
+	_best = -1
+	_i    = 0
+
+	for _i = 0 ; _i < 24 ; _i++ {
+		if ccshhour[_i] > 0 && (_best < 0 || ccshhour[_i] > ccshhour[_best]) {
+			_best = _i
+		}
+	}
+	_best
+}
+
+//------------------------------------------------------------------------------
+//_argv[0] 時台から _argv[1] 時台までの依頼の数
+//------------------------------------------------------------------------------
+CCS.HourSum
+{
+	_sum  = 0
+	_i    = TOINT(_argv[0])
+	_last = TOINT(_argv[1])
+
+	while _i <= _last {
+		_sum += ccshhour[_i]
+		_i++
+	}
+	_sum
+}
+
+
+//******************************************************************************
+//称号
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//授けられる称号を並べる。1 つが「ID|#|称号|#|アンソニーのひとこと」
+//同じ種類の称号は、いちばん上のものだけを並べる
+//------------------------------------------------------------------------------
+CCS.Titles
+{
+	_list = IARRAY
+	_top  = IARRAY
+	_late = CCS.HourSum(0, 4)
+
+	//---- 依頼の数
+	if ccshn >= 50000 {
+		_list ,= 'req50000|#|数え切れぬ依頼を下せし者|#|もはや数える私の手が追いつきません。'
+	}
+	elseif ccshn >= 10000 {
+		_list ,= 'req10000|#|万の依頼を下せし者|#|一万件でございます。\w9\n記録帳が二冊目に入りました。'
+	}
+	elseif ccshn >= 5000 {
+		_list ,= 'req5000|#|五千の依頼を下せし者|#|五千件。立派な古参でございます。'
+	}
+	elseif ccshn >= 1000 {
+		_list ,= 'req1000|#|千の依頼を下せし者|#|千件でございます。\w9\n慣れた手つきになってまいりました。'
+	}
+	elseif ccshn >= 100 {
+		_list ,= 'req100|#|駆け出しの依頼主|#|百件でございます。ここからが本番かと。'
+	}
+
+	//---- 登城した日数
+	if ccshdays >= 365 {
+		_list ,= 'days365|#|一年登城の重臣|#|三百六十五日分の登城でございます。'
+	}
+	elseif ccshdays >= 100 {
+		_list ,= 'days100|#|百日登城の功労者|#|百日。もはや城の一員でございます。'
+	}
+	elseif ccshdays >= 30 {
+		_list ,= 'days30|#|常連の客人|#|お顔を覚えてしまいました。'
+	}
+
+	//---- 続けて登城した日数
+	if ccshstreakmax >= 30 {
+		_list ,= 'streak30|#|皆勤の鉄人|#|ひと月、一日も欠かさずでございます。'
+	}
+	elseif ccshstreakmax >= 7 {
+		_list ,= 'streak7|#|七日続けて登城せし者|#|一週間、休まずでございます。'
+	}
+
+	//---- 作業フォルダの数
+	if ARRAYSIZE(ccshpname) >= 30 {
+		_list ,= 'land30|#|三十の領地を束ねし大領主|#|地図が足りなくなってまいりました。'
+	}
+	elseif ARRAYSIZE(ccshpname) >= 10 {
+		_list ,= 'land10|#|十の領地を治めし者|#|手広くお治めでございます。'
+	}
+	elseif ARRAYSIZE(ccshpname) >= 3 {
+		_list ,= 'land3|#|三つの領地の主|#|領地が増えてまいりました。'
+	}
+
+	//---- いちばん手をかけた作業フォルダ
+	if STRLEN(CCS.TopProject) > 0 {
+		_top = SPLIT(CCS.TopProject, '|#|')
+		if TOINT(_top[1]) >= 300 {
+			_list ,= 'top|#|' + _top[0] + 'の開拓者|#|よく耕された領地でございます。'
+		}
+	}
+
+	//---- 一日の最多
+	if ccshdaymax >= 300 {
+		_list ,= 'daymax300|#|嵐を呼ぶ依頼主|#|一日で三百件。\w9\nあの日のことは忘れられません。'
+	}
+	elseif ccshdaymax >= 100 {
+		_list ,= 'daymax100|#|一日百依頼の猛者|#|一日で百件でございます。'
+	}
+
+	//---- 時刻
+	if _late >= 1000 {
+		_list ,= 'late1000|#|夜の支配者|#|念のため申し上げますが、\w9\n褒めてはおりません。'
+	}
+	elseif _late >= 100 {
+		_list ,= 'late100|#|夜更かしの騎士|#|念のため申し上げますが、\w9\n褒めてはおりません。'
+	}
+	if CCS.HourSum(5, 7) >= 100 {
+		_list ,= 'early100|#|暁の働き者|#|早起きは三文の徳でございます。'
+	}
+
+	//---- ゴーストが見届けたもの
+	if ccsanswer >= 1000 {
+		_list ,= 'answer1000|#|打てば響く者|#|呼ばれて千回、応えて千回でございます。'
+	}
+	elseif ccsanswer >= 100 {
+		_list ,= 'answer100|#|呼べば応える者|#|ベルを鳴らす甲斐がございます。'
+	}
+	if ccslong >= 10 {
+		_list ,= 'long10|#|待つことを知る者|#|長考を十度、辛抱強くお待ちになりました。'
+	}
+	if ccsworkmax >= 21600 {
+		_list ,= 'work6h|#|不眠の城主|#|六時間続けて、でございます。\w9\nお体を大事に。'
+	}
+	elseif ccsworkmax >= 14400 {
+		_list ,= 'work4h|#|根気の人|#|四時間続けて作業なさいました。'
+	}
+	if ccsbreak >= 10 {
+		_list ,= 'break10|#|休憩を勧められ続ける者|#|これも称号でございます。一応。'
+	}
+	_list
+}
+
+
+//******************************************************************************
+//節目のお祝い
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//最初に履歴を読み終えたとき、それまでに届いていた節目を「祝い済み」にする
+//入れたとたんに称号の授与が続かないように。値は返さない
+//------------------------------------------------------------------------------
+CCS.QuietMilestones
+{
+	_list = CCS.Titles
+	_t    = ''
+
+	ccsmile   = ccshn / 1000
+	ccstitles = IARRAY
+	foreach _list ; _t {
+		ccstitles ,= SPLIT(_t, '|#|')[0]
+	}
+}
+
+//------------------------------------------------------------------------------
+//OnMinuteChange から 1 分おきに呼ぶ（CC.Minute から）。
+//履歴を読み進め、節目に届いていたら一度だけ祝う。話すことが無ければ空文字列
+//------------------------------------------------------------------------------
+CCS.Minute
+{
+	_talk = ''
+
+	//---- 最初の読み込みは重いので、1 分に 1500 行ずつ
+	if CCS.HistPending {
+		CCS.HistRead(1500)
+	}
+	//---- 履歴のファイルが無いときも、ここで祝う準備を済ませる
+	if ccshready != 1 && !CCS.HistPending {
+		ccshready = 1
+		CCS.QuietMilestones
+	}
+	CCS.RollDay
+	if ccshready == 1 && CC.TalkOK(120) {
+		_talk = CCS.Milestone
+		if STRLEN(_talk) > 0 {
+			cctalkat = GETSECCOUNT
+		}
+	}
+	_talk
+}
+
+//------------------------------------------------------------------------------
+//届いた節目があれば、そのトーク。1 回に 1 つだけ。無ければ空文字列
+//記念日 → 新しい称号 → 依頼の千件ごと の順に見る
+//------------------------------------------------------------------------------
+CCS.Milestone
+{
+	_now   = GETTIME
+	_first = IARRAY
+	_list  = IARRAY
+	_t     = ''
+	_r     = IARRAY
+
+	//---- 使い始めた日（記録の残る最初の日）の記念日
+	if ccshfirst > 0 {
+		_first = GETTIME(ccshfirst)
+		if _now[1] == _first[1] && _now[2] == _first[2] && _now[0] > _first[0] && ccsanniv != _now[0] {
+			ccsanniv = _now[0]
+			return CCS.TalkAnniv(_now[0] - _first[0])
+		}
+	}
+
+	//---- 新しい称号（上の段に上がったときも）
+	_list = CCS.Titles
+	foreach _list ; _t {
+		_r = SPLIT(_t, '|#|')
+		if ASEARCH(_r[0], ccstitles) < 0 {
+			ccstitles ,= _r[0]
+			return CCS.TalkTitle(_r[1], _r[2])
+		}
+	}
+
+	//---- 依頼の千件ごと
+	if ccshn / 1000 > ccsmile {
+		ccsmile = ccshn / 1000
+		return CCS.TalkThousand(ccsmile * 1000)
+	}
+	''
+}
+
+//---- 記念日。_argv[0] 何年目か
+CCS.TalkAnniv
+{
+	"\u\s[10]\0\s[25]今日は記念日ですわよ、%(username)。\w9\nあなたの記録が始まって、\w9\nちょうど%(_argv[0])年ですわ。\w8\1始まりは%(CCS.SecDate(ccshfirst))でございました。\w8\0\n\nこれからも励みなさいな。\w8\1記念の%(sweets)をご用意いたしました。\e"
+	"\u\s[10]\0\s[26]覚えていまして？\w9\n%(_argv[0])年前の今日、\w9\nあなたの最初の依頼が\w9\n記録されましたのよ。\w8\1あれから%(CCS.Comma(ccshn))件でございます。\w8\0\s[5]\n\nおーっほっほっほ！\w9\n立派になりましたこと！\e"
+}
+
+//---- 新しい称号。_argv[0] 称号 / _argv[1] アンソニーのひとこと
+//---- 称号には作業フォルダの名前が入ることがあるので、%() で展開せずにつなぐ
+CCS.TalkTitle
+{
+	'\u\s[10]\0\s[26]あら、' + username + '。\w9\n新しい称号を授けて差し上げますわ。\w8\1「' + _argv[0] + '」。\w9\n' + _argv[1] + '\w8\0\s[25]\n\n謹んでお受けなさいな。\e'
+	'\u\s[10]\0\s[5]おーっほっほっほ！\w9\nまた功績が増えましたわね。\w8\1称号「' + _argv[0] + '」でございます。\w9\n' + _argv[1] + '\e'
+}
+
+//---- 依頼の千件ごと。_argv[0] 件数
+CCS.TalkThousand : nonoverlap
+{
+	"\u\s[10]\0\s[5]おーっほっほっほ！\w9\n依頼が%(CCS.Comma(_argv[0]))件に届きましたわ！\w8\1記録帳に印をつけておきます。\e"
+	"\u\s[10]\0\s[25]%(username)、ご存じ？\w9\nあなたの依頼、これで\w9\n%(CCS.Comma(_argv[0]))件目ですのよ。\w8\1記念に%(tea)をお淹れいたしました。\e"
+	"\u\s[10]\0\s[26]%(CCS.Comma(_argv[0]))件。\w9\nよくもまあ、これだけ\w9\n働かせましたこと。\w8\1お嬢様は褒めていらっしゃいます。\w8\0\s[1]\n\n余計な通訳はいりませんわ。\e"
+}
+
+
+//******************************************************************************
+//功績録と本日の業務報告（メニューから）
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//功績録。\x で頁を分けて読み上げる
+//------------------------------------------------------------------------------
+CCS.Record
+{
+	_talk = ''
+
+	CCS.RollDay
+	//---- 読み残しがあれば、ここで全部読む
+	if CCS.HistPending {
+		CCS.HistRead(100000)
+	}
+	if ccshn > 0 {
+		_talk += CCS.PageHistory + '\x' + CCS.PageLand + '\x'
+	}
+	else {
+		_talk += '\u\s[10]\0\s[4]\b[2]Claude Code の依頼の記録が\w9\n見つかりませんわ。\w8\1わたくしどもで数えた分だけ\w9\nお読みいたします。\w8\0\n\n'
+	}
+	_talk += CCS.PageWatch + '\x' + CCS.PageTitles
+	_talk
+}
+
+//---- 1 頁目: 依頼の記録
+CCS.PageHistory
+{
+	_span = (GETSECCOUNT - ccshfirst) / 86400 + 1
+	_talk = ''
+
+	_talk  = '\u\s[10]\0\s[26]\b[2]あなたの功績録ですわ。\w9\nとくとご覧なさい。\w8\n\n\_q'
+	_talk += '・記録の始まり　' + CCS.SecDate(ccshfirst) + '\n'
+	_talk += '・登城した日　' + CCS.Comma(ccshdays) + '日（' + CCS.Comma(_span) + '日のうち）\n'
+	_talk += '・依頼　' + CCS.Comma(ccshn) + '件\n'
+	_talk += '・一日の最多　' + CCS.Comma(ccshdaymax) + '件（' + CCS.DateText(ccshdaymaxkey) + '）\n'
+	_talk += '・続けて登城した最長　' + CCS.Comma(ccshstreakmax) + '日\_q\w8'
+	if ccshn >= 1000 {
+		_talk += '\1一日あたり' + (ccshn / ccshdays) + '件でございます。\w8\0\s[25]\n\nよく働きましたこと。\w9\n褒めて差し上げますわ。'
+	}
+	else {
+		_talk += '\1これからでございますね。\w8\0\s[0]\n\n記録はまだまだ伸びますわ。'
+	}
+	_talk
+}
+
+//---- 2 頁目: 領地と時刻
+CCS.PageLand
+{
+	_top  = SPLIT(CCS.TopProject, '|#|')
+	_peak = CCS.PeakHour
+	_late = CCS.HourSum(0, 4)
+	_talk = ''
+
+	_talk  = '\u\s[10]\0\s[0]\b[2]治めた領地と、働く時刻ですわ。\w8\n\n\_q'
+	_talk += '・治めた領地　' + ARRAYSIZE(ccshpname) + 'か所\n'
+	if ARRAYSIZE(_top) >= 2 {
+		_talk += '・いちばんの領地　' + _top[0] + '（' + CCS.Comma(_top[1]) + '件）\n'
+	}
+	_talk += '・よく働く時刻　' + _peak + '時台\n'
+	_talk += '・深夜（0〜4時台）の依頼　' + CCS.Comma(_late) + '件\n'
+	_talk += '・早朝（5〜7時台）の依頼　' + CCS.Comma(CCS.HourSum(5, 7)) + '件\_q\w8'
+	if _late * 10 >= ccshn {
+		_talk += '\0\s[7]\n\n深夜の依頼が多すぎましてよ。\w8\1念のため、褒めてはおりません。'
+	}
+	elseif _peak >= 5 && _peak <= 11 {
+		_talk += '\0\s[25]\n\n朝のうちに片付ける。\w9\n感心な働き方ですわ。\w8\1お嬢様より早起きでございます。'
+	}
+	else {
+		_talk += '\0\s[26]\n\n規則正しくて結構ですわ。\w8\1夜更かしは控えめでございますね。'
+	}
+	_talk
+}
+
+//---- 3 頁目: わたくしどもが見届けた分
+CCS.PageWatch
+{
+	_talk = ''
+
+	CCS.Init
+	if ccsanswer + ccsdone + ccsbusy + ccsnew == 0 {
+		return '\u\s[10]\0\s[0]\b[2]わたくしどもが見届けた分は、\w9\nまだこれからですわ。\w8\1記録は' + CCS.SecDate(ccssince) + 'より\w9\nつけ始めております。'
+	}
+	_talk  = '\u\s[10]\0\s[26]\b[2]わたくしどもが見届けた分ですわ。\w9\n' + CCS.SecDate(ccssince) + 'から数えていますの。\w8\n\n\_q'
+	_talk += '・返事待ちに応えた　' + CCS.Comma(ccsanswer) + '回\n'
+	_talk += '・大仕事の完了（1分半以上）　' + CCS.Comma(ccsdone) + '回\n'
+	_talk += '・10分を超える長考　' + CCS.Comma(ccslong) + '回\n'
+	_talk += '・Claude が働いた時間　' + CC.Duration(ccsbusy) + '\n'
+	_talk += '・続けて作業した最長　' + CC.Duration(ccsworkmax) + '\n'
+	_talk += '・開いたセッション　' + CCS.Comma(ccsnew) + '（夜更けに' + CCS.Comma(ccslate) + '）\n'
+	_talk += '・休憩のおすすめ　' + CCS.Comma(ccsbreak) + '回\_q\w8'
+	if ccsbreak > 0 {
+		_talk += '\1休憩のおすすめを' + ccsbreak + '回。\w9\nお聞き入れの回数は、\w9\n数えておりません。'
+	}
+	else {
+		_talk += '\1これからも記録してまいります。'
+	}
+	_talk
+}
+
+//---- 4 頁目: 称号
+CCS.PageTitles
+{
+	_list = CCS.Titles
+	_t    = ''
+	_talk = ''
+
+	if ARRAYSIZE(_list) == 0 {
+		return '\u\s[10]\0\s[0]\b[2]称号は、まだございませんわね。\w9\nこれからの働きに期待しますわ。\w8\1精進でございます。'
+	}
+	_talk = '\u\s[10]\0\s[26]\b[2]以上の功績をもって、\w9\n次の称号を授けますわ。\w8\n\n\_q'
+	foreach _list ; _t {
+		_talk += '「' + SPLIT(_t, '|#|')[1] + '」\n'
+	}
+	_talk += '\_q\w8'
+	if ARRAYSIZE(_list) >= 5 {
+		_talk += '\0\s[5]\nおーっほっほっほ！\w9\n見事な働きぶりですわ！\w8\1おめでとうございます。'
+	}
+	else {
+		_talk += '\0\s[25]\n謹んでお受けなさいな。\w8\1おめでとうございます。'
+	}
+	_talk
+}
+
+//------------------------------------------------------------------------------
+//本日の業務報告
+//------------------------------------------------------------------------------
+CCS.Today.Report
+{
+	_n    = 0
+	_talk = ''
+
+	CCS.RollDay
+	if CCS.HistPending {
+		CCS.HistRead(100000)
+	}
+	_n = CCS.TodayRequests
+
+	_talk  = '\u\s[10]\0\s[0]\b[2]本日の業務報告ですわ。\w8\n\n\_q'
+	_talk += '・依頼　' + CCS.Comma(_n) + '件\n'
+	_talk += '・開いたセッション　' + CCS.Comma(ccsd_new) + '\n'
+	_talk += '・Claude が働いた時間　' + CC.Duration(ccsd_busy) + '\n'
+	_talk += '・大仕事の完了　' + CCS.Comma(ccsd_done) + '回\n'
+	_talk += '・返事待ちに応えた　' + CCS.Comma(ccsd_answer) + '回\n'
+	_talk += '・作業していた時間　' + CC.Duration(ccsd_work) + '\_q\w8'
+
+	if _n == 0 && ccsd_busy == 0 {
+		_talk += '\0\s[6]\n\n本日はまだ、何もしておりませんのね。\w8\1嵐の前の静けさでございます。'
+	}
+	elseif _n >= 10 && _n == ccshdaymax {
+		_talk += '\0\s[5]\n\nおーっほっほっほ！\w9\n一日の最多記録ですわよ！\w8\1記録帳を書き換えておきます。'
+	}
+	elseif _n >= 100 {
+		_talk += '\0\s[2]\n\n百件を超えましたの！？\w9\n見事ですけれど、働きすぎですわ。\w8\1' + tea + 'を濃いめにお淹れいたします。'
+	}
+	elseif _n >= 20 {
+		_talk += '\0\s[25]\n\nよく働きましたこと。\w9\n褒めて差し上げますわ。\w8\1お疲れさまでございます。'
+	}
+	else {
+		_talk += '\0\s[0]\n\nほどほどの一日ですわね。\w8\1無理のない働き方は、\w9\n長続きいたします。'
+	}
+	_talk
+}
+
+//------------------------------------------------------------------------------
+//終了のあいさつの前に添える、本日のひとこと。依頼が無ければ空文字列
+//------------------------------------------------------------------------------
+CCS.CloseReport
+{
+	_n    = 0
+	_talk = ''
+
+	CCS.RollDay
+	_n = CCS.TodayRequests
+	if _n > 0 {
+		if ccsd_busy >= 60 {
+			_talk = '\0\s[26]本日は依頼' + CCS.Comma(_n) + '件、\w9\nClaude は' + CC.Duration(ccsd_busy) + '働きましたわ。'
+		}
+		else {
+			_talk = '\0\s[26]本日の依頼は' + CCS.Comma(_n) + '件でしたわね。'
+		}
+		_talk += '\w9\w9\n'
+	}
+	_talk
+}

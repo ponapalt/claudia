@@ -628,6 +628,14 @@ CC.DirChanged
 		return ''
 	}
 
+	//---- 功績録に数える（yaya_ccstats.dic）
+	if ccadded > 0 {
+		CCS.Count('new', ccadded)
+		if CC.IsLate {
+			CCS.Count('late', ccadded)
+		}
+	}
+
 	//---- セッションが新しく立ち上がったときだけ、ひとこと
 	//---- 起動時にすでに動いていた分は CC.Start が ccadded を 0 に戻すので、ここには来ない
 	if ccadded > 0 && CC.TalkOK(60) {
@@ -724,6 +732,24 @@ CC.NoticeFile
 	//---- 前の状態が当てになるのは、同じセッションを続けて見ているときだけ
 	if _id == ccsession {
 		_before = ccstatus
+	}
+
+	//---- 功績録に数える（yaya_ccstats.dic）。返事待ちから作業に戻ったら「応えた」、
+	//---- 作業から離れたら、その間を Claude が働いた時間に
+	if _before == 'waiting' && _status == 'busy' {
+		CCS.Count('answer')
+	}
+	if _before == 'busy' && ccbusyid == _id && ccbusyat > 0 {
+		_busyfor = (_at - ccbusyat) / 1000
+		if _busyfor > 0 && _busyfor < 86400 {
+			CCS.Count('busy', _busyfor)
+			if _status == 'idle' && _busyfor >= 90 {
+				CCS.Count('done')
+			}
+			if _status == 'idle' && _busyfor >= 600 {
+				CCS.Count('long')
+			}
+		}
 	}
 
 	if _status == 'busy' {
@@ -974,13 +1000,17 @@ CC.LongBusy
 }
 
 //------------------------------------------------------------------------------
-//OnMinuteChange から 1 分おきに呼ぶ。長考の声かけを優先し、無ければ休憩のすすめ
+//OnMinuteChange から 1 分おきに呼ぶ。長考の声かけを優先し、無ければ休憩のすすめ、
+//それも無ければ功績録の節目のお祝い（yaya_ccstats.dic）
 //------------------------------------------------------------------------------
 CC.Minute
 {
 	_talk = CC.LongBusy
 	if STRLEN(_talk) == 0 {
 		_talk = CC.LongWork
+	}
+	if STRLEN(_talk) == 0 {
+		_talk = CCS.Minute
 	}
 	_talk
 }
@@ -1022,6 +1052,11 @@ CC.MarkWork
 		ccworkfrom = _now
 		ccbreakn   = 0
 	}
+	else {
+		//---- 続けて作業している。功績録に数える（yaya_ccstats.dic）
+		CCS.Count('work', _now - ccworkat)
+		CCS.WorkSpan(_now - ccworkfrom)
+	}
 	ccworkat = _now
 }
 
@@ -1055,6 +1090,7 @@ CC.LongWork
 	}
 	ccbreakn += 1
 	cctalkat  = _now
+	CCS.Count('break')
 	_hours    = TOINT((_now - ccworkfrom) / 3600)
 	CC.TalkBreak(ccbreakn, _hours)
 }
