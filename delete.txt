@@ -2,3 +2,6 @@ charset,UTF-8
 shell\master\surface11.png
 shell\master\surface26.png
 shell\master\surface6.png
+shell\master\surface1.png
+shell\master\surface7.png
+shell\master\surface25.png

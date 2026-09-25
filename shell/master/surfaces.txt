@@ -18,14 +18,17 @@ collisionex7,Foot,ellipse,163,472,184,494
 collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
 
 animation0.interval,sometimes
-animation0.pattern0,overlay,1001,0,114,100
-animation0.pattern1,overlay,1000,50,112,100
-animation0.pattern2,overlay,1001,50,114,100
+animation0.pattern0,overlay,1001,0,0,0
+animation0.pattern1,overlay,1000,50,0,0
+animation0.pattern2,overlay,1001,50,0,0
 animation0.pattern3,overlay,-1,50,0,0
 }
 
 surface1
 {
+element0,base,surface0.png,0,0
+element1,overlay,claudia_eyes_1.png,0,0
+
 collisionex0,Fan,polygon,212,209,250,206,280,222,287,243,235,256
 collisionex1,Head,rect,106,31,225,108
 collisionex2,Face,rect,125,110,206,165
@@ -79,7 +82,7 @@ collisionex8,Skirt,polygon,59,400,273,400,294,446,268,472,62,472,39,444
 surface6
 {
 element0,base,surface0.png,0,0
-element1,overlay,surface1000.png,112,100
+element1,overlay,surface1000.png,0,0
 
 collisionex0,Fan,polygon,212,209,250,206,280,222,287,243,235,256
 collisionex1,Head,rect,106,31,225,108
@@ -94,6 +97,9 @@ collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
 
 surface7
 {
+element0,base,surface0.png,0,0
+element1,overlay,claudia_eyes_7.png,0,0
+
 collisionex0,Fan,polygon,212,209,250,206,280,222,287,243,235,256
 collisionex1,Head,rect,106,31,225,108
 collisionex2,Face,rect,125,110,206,165
@@ -107,6 +113,9 @@ collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
 
 surface25
 {
+element0,base,surface0.png,0,0
+element1,overlay,claudia_eyes_25.png,0,0
+
 collisionex0,Fan,polygon,212,209,250,206,280,222,287,243,235,256
 collisionex1,Head,rect,106,31,225,108
 collisionex2,Face,rect,125,110,206,165
@@ -121,7 +130,7 @@ collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
 surface26
 {
 element0,base,surface0.png,0,0
-element1,overlay,surface1001.png,114,100
+element1,overlay,surface1001.png,0,0
 
 collisionex0,Fan,polygon,212,209,250,206,280,222,287,243,235,256
 collisionex1,Head,rect,106,31,225,108
