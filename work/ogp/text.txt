@@ -1,0 +1,6 @@
+kicker=悪役令嬢
+title=クローディア
+latin=Claudia et Anthony
+quote1=あなたの Claude Code は、
+quote2=わたくしが見張って差し上げますわ。
+footer=伺か ghost  /  SHIORI: YAYA
