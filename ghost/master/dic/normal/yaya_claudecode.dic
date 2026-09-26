@@ -1237,38 +1237,93 @@ CC.Duration
 }
 
 //------------------------------------------------------------------------------
-//起動中のセッションを並べた本文を作る。1 件も無ければ空文字列
+//起動中のセッションを並べた本文を作る。1 件も無ければ空文字列。最後の行に改行は付けない
+//  _argv は CC.Scan の結果。返事待ちを先に並べる
+//  1 件は 2 行（名前と作業フォルダ、状態と経過）。待たれている中身がわかれば 3 行
+//  大きいバルーン（24 行）に選択肢と情報バーまで収まるよう、14 行を超える分は
+//  「ほかに N 件」にまとめる
 //------------------------------------------------------------------------------
 CC.ListBody
 {
-	_list = CC.Scan
-	_body = ''
-	_i    = 0
-	_r    = IARRAY
-	_p    = IARRAY
-	_max  = 6
+	_order = IARRAY
+	_body  = ''
+	_used  = 0
+	_shown = 0
+	_i     = 0
+	_r     = IARRAY
+	_p     = IARRAY
+	_name  = ''
+	_proj  = ''
+	_row   = ''
+	_cost  = 0
 
-	if ARRAYSIZE(_list) < _max {
-		_max = ARRAYSIZE(_list)
+	foreach _argv ; _a {
+		if STRSTR(_a, 'waiting|#|', 0) == 0 {
+			_order ,= _a
+		}
 	}
-	for _i = 0 ; _i < _max ; _i++ {
-		_r = SPLIT(_list[_i], '|#|')
+	foreach _argv ; _a {
+		if STRSTR(_a, 'waiting|#|', 0) != 0 {
+			_order ,= _a
+		}
+	}
+	for _i = 0 ; _i < ARRAYSIZE(_order) ; _i++ {
+		_r = SPLIT(_order[_i], '|#|')
 		_p = IARRAY
 		if _r[0] == 'waiting' {
 			_p = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
 		}
-		_body += '・' + _r[1] + '（' + CC.ProjectName(_r[2]) + '）\n' + /
-		         '　' + CC.StateName(_r[0], _r[3], _p[0]) + '　' + /
-		         CC.Duration(GETSECCOUNT - TOINT(_r[4]) / 1000) + '\n'
+		//---- 名前と作業フォルダは記録から拾った文字なので、CC.Label で危ない文字を外す
+		_proj = CC.Label('', _r[2])
+		_name = CC.Label(_r[1], _r[2])
+		_row  = '・' + SHIORI3FW.MakeShortText(_name, 22)
+		if _name != _proj {
+			_row += '（' + SHIORI3FW.MakeShortText(_proj, 18) + '）'
+		}
+		_row += '\n　' + CC.StateName(_r[0], _r[3], _p[0]) + '　' + /
+		        CC.Duration(GETSECCOUNT - TOINT(_r[4]) / 1000)
+		_cost = 2
 		//---- 何を待たれているかがわかれば、もう 1 行
 		if STRLEN(_p[1]) > 0 {
-			_body += '　「' + _p[1] + '」\n'
+			_row  += '\n　「' + SHIORI3FW.MakeShortText(_p[1], 38) + '」'
+			_cost += 1
 		}
+		if _shown > 0 && _used + _cost > 14 {
+			break
+		}
+		if _shown > 0 {
+			_body += '\n'
+		}
+		_body  += _row
+		_used  += _cost
+		_shown += 1
 	}
-	if ARRAYSIZE(_list) > _max {
-		_body += '・ほかに' + (ARRAYSIZE(_list) - _max) + '件\n'
+	if ARRAYSIZE(_order) > _shown {
+		_body += '\n・ほかに' + (ARRAYSIZE(_order) - _shown) + '件'
 	}
 	_body
+}
+
+//------------------------------------------------------------------------------
+//一覧のあとのアンソニーのひとこと
+//  _argv[0] 返事待ちの数 / _argv[1] 作業中の数 / _argv[2] 全部の数
+//------------------------------------------------------------------------------
+CC.ListButler
+{
+	_wait = _argv[0]
+
+	if _argv[0] > 0 {
+		"返事待ちが%(_wait)件ございます。\w9\nそちらからお先に。"
+		"%(_wait)件、端末でお返事を\w9\nお待ちでございます。"
+	}
+	elseif _argv[1] == _argv[2] {
+		'皆さま、手を動かして\w9\nおいででございます。'
+		'つつがなく進んでおります。'
+	}
+	else {
+		'手すきの方も\w9\nおいでのようでございます。'
+		'次のご用命をお待ちの方も\w9\nおいででございます。'
+	}
 }
 
 

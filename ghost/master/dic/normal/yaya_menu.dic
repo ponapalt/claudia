@@ -88,6 +88,15 @@ MENU.MainInfo
 	_text
 }
 
+//---- Claude Code の様子の情報バーの中身。「17:48 現在　作業中 1・待ち 1・手すき 0」
+//  _argv[0] 返事待ちの数 / _argv[1] 作業中の数 / _argv[2] 全部の数
+MENU.CCInfo
+{
+	_t = GETTIME
+	_t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + ' 現在　作業中 ' + _argv[1] + /
+	'・待ち ' + _argv[0] + '・手すき ' + (_argv[2] - _argv[0] - _argv[1])
+}
+
 //---- 設定メニューの情報バーの中身。「話す頻度：ふつう・呼び名：あなた」
 MENU.ConfigInfo
 {
@@ -382,20 +391,36 @@ Menu_GHOSTCOMSTART
 }
 
 //---- Claude Code の様子（起動中のセッション一覧）
+//  セッションの一覧（CC.Scan）はファイルを読むので、一覧と情報バーで 1 回の結果を使う
 Menu_CLAUDECODE
 {
-	_body = CC.ListBody
+	_list = CC.Scan
+	_n    = ARRAYSIZE(_list)
+	_wait = 0
+	_busy = 0
+	_r    = IARRAY
 
-	if STRLEN(_body) == 0 {
+	if _n == 0 {
 		return '\0\s[4]もう誰も働いておりませんわ。\e'
 	}
-	//---- 一覧は長くなるので大きいバルーン（\b[2]）で出す
+	foreach _list ; _a {
+		_r = SPLIT(_a, '|#|')
+		if _r[0] == 'waiting' {
+			_wait += 1
+		}
+		elseif _r[0] == 'busy' {
+			_busy += 1
+		}
+	}
+	//---- 一覧は長くなるので大きいバルーン（\b[2]）で出す。一覧は \_q で一度に出し、
+	//     アンソニーのひとことのあと、選択肢から情報バーまでを \_q で一度に出す
 	//---- 本文には記録から拾った文字が入るので、%() で展開せずにつなぐ
-	'\u\s[10]\0\s[26]\b[2]ご覧なさい。\w9\n今、これだけ動いておりましてよ。\w8\n\n' + _body
-	--
-	AYATEMPLATE.MenuItem("見張りを立て直す","Menu_CCWATCH",200)
-	--
-	AYATEMPLATE.MenuItem("戻る","OpenMenu")
+	_talk  = '\u\s[10]\0\s[26]\b[2]ご覧なさい。\w9\n今、これだけ動いておりましてよ。\w8\n\n[half]'
+	_talk += '\_q' + CC.ListBody(_list) + '\_q'
+	_talk += '\w8\1' + CC.ListButler(_wait, _busy, _n) + '\w8\0\n\n[half]'
+	_talk += '\_q' + MENU.Grid('もう一度見る|Menu_CLAUDECODE', '見張りを立て直す|Menu_CCWATCH', '戻る|OpenMenu')
+	_talk += '\n' + MENU.InfoBar(MENU.CCInfo(_wait, _busy, _n)) + '\_q'
+	_talk
 }
 
 //---- 功績録（yaya_ccstats.dic）。メニューから開くと 1 頁目を出し、回数を数える
