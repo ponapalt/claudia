@@ -41,6 +41,7 @@ On_recommendrootbutton.caption
 //------------------------------------------------------------------------------
 On_sakura.recommendsites_EX : array
 {
+	'クローディア (紹介ページ) | https://ponadocs.shillest.net/claudia/ | '
 	'クローディア (GitHub) | https://github.com/ponapalt/claudia            | '
 	'紺野ややめ (元にしたテンプレート) | https://github.com/YAYA-shiori/konnoyayame | '
 }

@@ -6,7 +6,7 @@
 
 登場人物、できること、制作後記は、紹介ページにまとめてあります。
 
-**紹介ページ: https://ponapalt.github.io/claudia/**
+**紹介ページ: https://ponadocs.shillest.net/claudia/**
 
 ## ダウンロード
 
