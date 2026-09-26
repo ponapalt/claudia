@@ -47,3 +47,6 @@ yaya_variable.cfg
 
 # design notes for developing the ghost; only in the repository
 /docs/design-system.md
+
+# introduction page for GitHub Pages (.github/workflows/pages.yml); only in the repository
+/site/
