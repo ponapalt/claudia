@@ -12,6 +12,105 @@
 //3つめの文字列＝改行する量　50%刻み　省略すると100%（＝\n）
 //******************************************************************************
 
+//******************************************************************************
+//二段組みのメニューと情報バー
+//
+//バルーン（claudia/ の s0）は 9 行 × 全角 23 字しか入らないので、メインメニューと
+//設定メニューは選択肢を左右 2 段に並べ、空いた行にメニューの下の情報バーを置く。
+//
+//MENU.Grid('表示する文字列|関数名', ...)
+//  項目を左、右、左、右…の順に 1 行 2 つずつ並べる。空文字列の項目は飛ばすので、
+//  条件つきの項目が出ないときも穴は空かない。配列を渡してもよい
+//  最初の行の前には改行を入れない（前の改行は呼び出し側で書く）
+//  左の段は空白で半角 22 字にそろえてから、\_l[180] で右の段の頭（全角 12 字目）へ送る
+//  右の段は半角 20 字にそろえる。項目の頭に付く菱の印（\![*]）の幅のぶん、
+//  22 字ではバルーンの右端（345px）を越えて折り返し、次の行の表示が崩れるため
+//  右の段に回る項目の文字列は半角 20 字まで（長いと切られる）
+//******************************************************************************
+MENU.Grid
+{
+	_items = IARRAY
+	_s     = ''
+	_i     = 0
+
+	foreach _argv ; _a {
+		if STRLEN(_a) > 0 {
+			_items ,= _a
+		}
+	}
+	for _i = 0 ; _i < ARRAYSIZE(_items) ; _i++ {
+		if _i % 2 == 0 {
+			if _i > 0 {
+				_s += '\n'
+			}
+			_s += MENU.Cell(_items[_i], 22)
+		}
+		else {
+			_s += '\_l[180]' + MENU.Cell(_items[_i], 20)
+		}
+	}
+	_s
+}
+
+//---- 二段組みの 1 項目。_argv[0] は「表示する文字列|関数名」、_argv[1] はそろえる幅（半角）
+MENU.Cell
+{
+	_p = SPLIT(_argv[0], '|')
+	'\![*]\q[' + AYATEMPLATE.EscapeText(SHIORI3FW.MakeJustText(_p[0], _argv[1])) + ',' + AYATEMPLATE.EscapeText(_p[1]) + ']'
+}
+
+//---- 情報バー。区切りの菱の次の行に、注記の色で 1 行（全角 23 字まで）
+MENU.InfoBar
+{
+	'\f[align,center]―― ◇ ――\n\f[align,left]\f[color,107,78,61]' + _argv[0] + '\f[default]'
+}
+
+//---- メインメニューの情報バーの中身
+//  「9月26日(土) 17:13  依頼 12件・稼働 2・待ち 1」
+//  _argv は CC.Scan の結果。Claude Code が無い PC では日付と時刻だけ
+MENU.MainInfo
+{
+	_t    = GETTIME
+	_text = _t[1] + '月' + _t[2] + '日(' + SUBSTR('日月火水木金土', _t[3], 1) + ') ' + /
+	        _t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2)
+	_wait = 0
+	_r    = IARRAY
+
+	if CC.HasSessionDir {
+		foreach _argv ; _a {
+			_r = SPLIT(_a, '|#|')
+			if _r[0] == 'waiting' {
+				_wait += 1
+			}
+		}
+		_text += '  依頼 ' + CCS.Comma(CCS.TodayRequests) + '件・稼働 ' + _argc + '・待ち ' + _wait
+	}
+	_text
+}
+
+//---- 設定メニューの情報バーの中身。「話す頻度：ふつう・呼び名：あなた」
+MENU.ConfigInfo
+{
+	_freq = aitalkinterval + '秒ごと'
+
+	case aitalkinterval {
+		when 0 {
+			_freq = '黙っていて'
+		}
+		when 15 {
+			_freq = 'たくさん'
+		}
+		when 180 {
+			_freq = 'ふつう'
+		}
+		when 300 {
+			_freq = '控えめに'
+		}
+	}
+	//---- 呼び名は長いと 1 行に入らないので、全角 8 字ほどで切る
+	'話す頻度：' + _freq + '・呼び名：' + SHIORI3FW.MakeShortText(username, 16)
+}
+
 //------------------------------------------------------------------------------
 //メインメニュー展開
 //------------------------------------------------------------------------------
@@ -27,26 +126,32 @@ OpenMenu
 	'\0\s[6]‥\w5‥\w5お茶の最中ですのに。\w9\nまあ、よろしいわ。'
 	'\u\s[10]\1お嬢様、お呼びでございます。\w8\0\s[0]わかっておりますわ。\w9\n何ですの？'
 	--
-	AYATEMPLATE.MenuItem("何か話して","Menu_AITALK",150)
-	--
-	if ( STRLEN(AYATEMPLATE.LastTalk) > 0 ) {
-		AYATEMPLATE.MenuItem("さっきの話は？","Menu_LASTTALK")
+	OPENMENU.Body
+}
+
+//---- メインメニューの選択肢と情報バー
+//  セッションの一覧（CC.Scan）はファイルを読むので、選択肢と情報バーで 1 回の結果を使う
+OPENMENU.Body
+{
+	_list  = CC.Scan
+	_items = IARRAY
+
+	_items ,= '何か話して|Menu_AITALK'
+	if STRLEN(AYATEMPLATE.LastTalk) > 0 {
+		_items ,= 'さっきの話は？|Menu_LASTTALK'
 	}
-	--
-	AYATEMPLATE.MenuItem("他のゴーストと話す","Menu_GHOSTCOMSTART")
-	--
-	AYATEMPLATE.MenuItem("クローディアに話しかける","Menu_COMMUNICATEOPEN")
-	--
+	_items ,= '話しかける|Menu_COMMUNICATEOPEN'
+	_items ,= 'ゴーストと話す|Menu_GHOSTCOMSTART'
+	_items ,= 'これまでの功績|Menu_CCSTATS'
 	//---- Claude Code が動いているときだけ見せる
-	if ( ARRAYSIZE(CC.Scan) > 0 ) {
-		AYATEMPLATE.MenuItem("Claude Code の様子は？","Menu_CLAUDECODE")
+	if ARRAYSIZE(_list) > 0 {
+		_items ,= 'Claude Code は？|Menu_CLAUDECODE'
 	}
-	--
-	AYATEMPLATE.MenuItem("これまでの功績は？","Menu_CCSTATS")
-	--
-	AYATEMPLATE.MenuItem("設定","Menu_CONFIG")
-	--
-	AYATEMPLATE.MenuItem("なんでもない","Menu_CANCEL",150)
+	_items ,= '設定|Menu_CONFIG'
+	_items ,= 'なんでもない|Menu_CANCEL'
+
+	//---- 挨拶のあと、選択肢から情報バーまでは \_q で一度に出す
+	'\n\n[half]\_q' + MENU.Grid(_items) + '\n' + MENU.InfoBar(MENU.MainInfo(_list)) + '\_q'
 }
 
 //------------------------------------------------------------------------------
@@ -81,15 +186,17 @@ Menu_TALKINTERVAL
 {
 	'\0\s[0]どのくらい話して差し上げればよろしいの？'
 	--
-	AYATEMPLATE.MenuItem("たくさん","Menu_TALKMAX",200)
+	'\n\n[half]\_q'
 	--
-	AYATEMPLATE.MenuItem("ふつう","Menu_TALKNORMAL")
+	MENU.Grid('たくさん|Menu_TALKMAX', 'ふつう|Menu_TALKNORMAL', '控えめに|Menu_TALKPOOR', '黙っていて|Menu_TALKNONE')
 	--
-	AYATEMPLATE.MenuItem("控えめに","Menu_TALKPOOR")
+	'\n\n[half]'
 	--
-	AYATEMPLATE.MenuItem("黙っていて","Menu_TALKNONE")
+	MENU.Grid('戻る|Menu_CONFIG')
 	--
-	AYATEMPLATE.MenuItem("戻る","Menu_CONFIG",150)
+	'\n'
+	--
+	MENU.InfoBar(MENU.ConfigInfo) + '\_q'
 }
 
 //---- 設定
@@ -119,32 +226,32 @@ Menu_CONFIG
 	}
 	'\0\s[0]何を変えたいのかしら？'
 	--
-	AYATEMPLATE.MenuItem("しゃべる頻度を変えて","Menu_TALKINTERVAL",150)
+	'\n\n[half]\_q'
 	--
-	AYATEMPLATE.MenuItem("名前の呼び方を変えて","Menu_USERNAME")
+	MENU.Grid('頻度を変えて|Menu_TALKINTERVAL', '呼び方を変えて|Menu_USERNAME')
 	--
-	AYATEMPLATE.MenuItem("Claude Code のベル：%(_bell)","Menu_CCBELL")
+	'\n\f[color,140,59,31]\f[bold,1]◆ Claude Code\f[default]\n'
 	--
-	AYATEMPLATE.MenuItem("Claude Code の完了音：%(_done)","Menu_CCDONE")
+	//---- 「休憩のすすめ：出さない」は半角 22 字あり、右の段に入らないので左に置く
+	MENU.Grid("ベル：%(_bell)|Menu_CCBELL", "完了音：%(_done)|Menu_CCDONE", /
+	          "休憩のすすめ：%(_break)|Menu_CCBREAK", "リマインダ：%(_remind)|Menu_CCREMIND")
 	--
-	AYATEMPLATE.MenuItem("Claude Code のリマインダ：%(_remind)","Menu_CCREMIND")
+	'\n\n[half]'
 	--
-	AYATEMPLATE.MenuItem("休憩のすすめ：%(_break)","Menu_CCBREAK")
+	MENU.Grid('戻る|OpenMenu', '設定終了|Menu_CONFIGEND')
 	--
-	AYATEMPLATE.MenuItem("戻る","OpenMenu",150)
+	'\n'
 	--
-	AYATEMPLATE.MenuItem("設定終了","Menu_CONFIGEND")
+	MENU.InfoBar(MENU.ConfigInfo) + '\_q'
 }
 
 //---- 設定を切り替えたあとの台詞に付ける選択肢
 //  台詞がアンソニーで終わっても、選択肢はクローディアのバルーンに出す
 CONFIG.AfterItems
 {
-	'\0'
+	'\0\n\n[half]\_q'
 	--
-	AYATEMPLATE.MenuItem("戻る","Menu_CONFIG",150)
-	--
-	AYATEMPLATE.MenuItem("設定終了","Menu_CONFIGEND")
+	MENU.Grid('戻る|Menu_CONFIG', '設定終了|Menu_CONFIGEND') + '\_q'
 }
 
 //---- 設定終了
