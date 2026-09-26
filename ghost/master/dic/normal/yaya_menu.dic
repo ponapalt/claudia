@@ -239,7 +239,8 @@ Menu_CONFIG
 	--
 	MENU.Grid('頻度を変えて|Menu_TALKINTERVAL', '呼び方を変えて|Menu_USERNAME')
 	--
-	'\n\f[color,140,59,31]\f[bold,1]◆ Claude Code\f[default]\n'
+	//---- 組の見出しは選択肢より目立たせず、半行の間と薄墨の文字だけで区切る
+	'\n\n[half]\f[color,107,78,61]Claude Code\f[default]\n'
 	--
 	//---- 「休憩のすすめ：出さない」は半角 22 字あり、右の段に入らないので左に置く
 	MENU.Grid("ベル：%(_bell)|Menu_CCBELL", "完了音：%(_done)|Menu_CCDONE", /

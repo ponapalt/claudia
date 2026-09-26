@@ -221,6 +221,7 @@
 | 称号の名前 | `\f[color,109,31,44]『深夜の宰相』\f[default]` |
 | 補足の小さな注記 | `\f[color,107,78,61]（午前 4 時で区切りますわ）\f[default]` |
 | 区切り | `\f[align,center]―― ◇ ――\n\f[align,left]`（SSP 2.5.31 以降） |
+| メニューの中の組の見出し（設定メニューの「Claude Code」など） | 上に半行の間（`\n\n[half]`）を取り、補足の注記と同じ色で飾りを付けない。`\f[color,107,78,61]Claude Code\f[default]`。頁の題の書き方にすると選択肢より目立ってしまう |
 | メニューの情報バー | 区切りの次の行に、補足の注記と同じ色で 1 行（全角 23 字まで）。`yaya_menu.dic` の `MENU.InfoBar` |
 
 - 太字は、フォントが対応していないと太くならない（UKADOC の `\f[bold]`）。BIZ UD明朝 Medium で太く見えるかは、試験用 SSP で `tools/sstp.ps1 -Script '...' -Balloon` を使って確かめる。
