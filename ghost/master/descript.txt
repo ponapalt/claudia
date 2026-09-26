@@ -17,7 +17,7 @@ shiori,yaya.dll
 
 craftman,ponapalt&claudia
 craftmanw,ponapalt&claudia
-craftmanurl,https://github.com/ponapalt/claudia
+craftmanurl,https://ponadocs.shillest.net/claudia/
 
 menu.background.alignment,leftbottom
 menu.foreground.alignment,leftbottom

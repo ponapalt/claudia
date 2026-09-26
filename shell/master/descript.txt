@@ -2,7 +2,7 @@ charset,UTF-8
 
 craftman,ponapalt&claudia
 craftmanw,ponapalt&claudia
-craftmanurl,https://github.com/ponapalt/claudia
+craftmanurl,https://ponadocs.shillest.net/claudia/
 
 name,Master
 type,shell

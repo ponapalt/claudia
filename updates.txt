@@ -11,7 +11,7 @@ file,ghost/master/cc_bell1.wavb1555d445155f6cdae02ce4aa5dd9552size=308744date
 file,ghost/master/cc_bell2.wav938253249fd86d9534c1d66ca4920ffcsize=352844date=2026-09-22T12:24:41
 file,ghost/master/cc_done.wavc811517abea92b29816cb1929830f4bfsize=220544date=2026-09-22T12:39:25
 file,ghost/master/cc_perm.wavfcb0f84efa1d479fa74310c372507575size=141164date=2026-09-22T15:45:18
-file,ghost/master/descript.txtb23469d2a42d37c03b87ffa5d44a2b54size=462date=2026-09-26T17:14:14
+file,ghost/master/descript.txtbb35756cd9db538a208f6125c61a35d5size=465date=2026-09-27T04:29:00
 file,ghost/master/icon.ico24bcd16bf3fe2ded5ec891ee11b35129size=96351date=2026-09-25T19:57:29
 file,ghost/master/icon_anthony.icoe821da70885a84ac9cc8f15b2addf7d9size=74338date=2026-09-25T19:57:29
 file,ghost/master/system_config.txt3965602fadd8acb2ee46c0310704c3e1size=682date=2026-09-19T18:20:56
@@ -56,7 +56,7 @@ file,shell/master/anthony_eyes11.pngf71697fdac5d5608b56a2eae68ec1127size=5928
 file,shell/master/claudia_eyes_1.png35d90122cc21878aca96f0ac2fa03bddsize=8194date=2026-09-26T08:14:59
 file,shell/master/claudia_eyes_25.png14da31cf04e792f307cfe111080419e7size=3930date=2026-09-26T08:14:59
 file,shell/master/claudia_eyes_7.pngd9525346fe58d4b3abf38677b60cde8csize=6906date=2026-09-26T08:14:59
-file,shell/master/descript.txt3b61c03d995696ae13520d0e6cafbc08size=506date=2026-09-21T07:31:51
+file,shell/master/descript.txt41ed4ad5474471a02709917a984f1717size=509date=2026-09-27T04:29:00
 file,shell/master/surface0.pngcc356ca67c27345b2521cbb957ed5024size=185846date=2026-09-26T08:14:59
 file,shell/master/surface10.png8bd74b179a37c99b0a34be7a4f3ccc28size=51125date=2026-09-26T08:14:59
 file,shell/master/surface1000.pngeba476de45f680d66365e367129adfa2size=3718date=2026-09-26T08:14:59
