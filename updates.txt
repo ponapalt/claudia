@@ -11,7 +11,7 @@ file,ghost/master/cc_bell1.wavb1555d445155f6cdae02ce4aa5dd9552size=308744date
 file,ghost/master/cc_bell2.wav938253249fd86d9534c1d66ca4920ffcsize=352844date=2026-09-22T12:24:41
 file,ghost/master/cc_done.wavc811517abea92b29816cb1929830f4bfsize=220544date=2026-09-22T12:39:25
 file,ghost/master/cc_perm.wavfcb0f84efa1d479fa74310c372507575size=141164date=2026-09-22T15:45:18
-file,ghost/master/descript.txtc0d2df6fc23eb2b177a22cb18be9ce83size=405date=2026-09-25T19:32:38
+file,ghost/master/descript.txtb23469d2a42d37c03b87ffa5d44a2b54size=462date=2026-09-26T17:14:14
 file,ghost/master/icon.ico24bcd16bf3fe2ded5ec891ee11b35129size=96351date=2026-09-25T19:57:29
 file,ghost/master/icon_anthony.icoe821da70885a84ac9cc8f15b2addf7d9size=74338date=2026-09-25T19:57:29
 file,ghost/master/system_config.txt3965602fadd8acb2ee46c0310704c3e1size=682date=2026-09-19T18:20:56

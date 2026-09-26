@@ -6,6 +6,9 @@ type,ghost
 sakura.name,Claudia
 kero.name,Anthony
 
+balloon,クローディア
+default.balloon.path,claudia
+
 sstp.allowunspecifiedsend,1
 
 icon,icon.ico
