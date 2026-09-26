@@ -444,11 +444,14 @@ Menu_CCPAGE5
 
 //---- 功績録の各頁の下に付ける選択肢
 //  最後はアンソニーが話しているので、選択肢はクローディアのバルーンに出す
+//  Claude Code が無い PC では、業務報告は出さない（CCS.NoClaude）
 CCSTATS.AfterItems
 {
 	'\w8\0\n'
 	--
-	AYATEMPLATE.MenuItem("本日の業務報告は？","Menu_CCTODAY")
+	if !CCS.NoClaude {
+		AYATEMPLATE.MenuItem("本日の業務報告は？","Menu_CCTODAY")
+	}
 	--
 	AYATEMPLATE.MenuItem("戻る","OpenMenu")
 	--

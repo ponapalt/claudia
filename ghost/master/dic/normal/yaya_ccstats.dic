@@ -933,6 +933,7 @@ CCS.TalkThousand : nonoverlap
 //功績録。頁ごとに独立したトークで、上端の見出し（CCS.Tabs）から頁を自由に切り替える
 //  _argv[0] 頁の番号（1〜5）。省略するとメニューから開いたものとして数え、
 //           1 頁目（依頼の記録が無ければ 3 頁目）を出す
+//           Claude Code が無い PC では、頁の代わりに CCS.PageNoClaude を出す
 //------------------------------------------------------------------------------
 CCS.Record
 {
@@ -949,6 +950,9 @@ CCS.Record
 		}
 		if ccsbdone != 1 {
 			CCS.Backfill(100000)
+		}
+		if CCS.NoClaude {
+			return CCS.PageNoClaude
 		}
 		_page = 3
 		if ccshn > 0 {
@@ -1003,6 +1007,43 @@ CCS.Tabs
 		}
 	}
 	_talk + '\n\f[align,center]―― ◇ ――\n\f[align,left]'
+}
+
+//------------------------------------------------------------------------------
+//Claude Code を使っていない PC なら 1
+//  セッションの置き場所も、依頼の記録も、見張りで数えたものも無いとき。
+//  前に使っていた PC（記録が残っている）では 0 にして、いつもの頁を出す
+//------------------------------------------------------------------------------
+CCS.NoClaude
+{
+	_is = 0
+
+	CCS.Init
+	if !CC.HasSessionDir && ccshn == 0 && ccsanswer + ccsdone + ccsbusy + ccsnew == 0 {
+		_is = 1
+	}
+	_is
+}
+
+//---- Claude Code が無い PC で功績録を開いたとき。頁の見出しは出さない
+//  番外の称号（なでた回数など、Claude Code が無くても貯まるもの）があれば、ここに並べる
+CCS.PageNoClaude
+{
+	_list = CCS.OddTitles
+	_t    = ''
+	_talk = '\u\s[10]\0\s[4]\b[2]あら、この館には Claude Code が\w9\n見当たりませんわね。\w8'
+
+	if ARRAYSIZE(_list) == 0 {
+		_talk += '\1功績録は、Claude Code での\w9\nお働きを記す帳面でございます。\w8\0\s[0]\n\nお使いになる日が来たら、\w9\nわたくしどもが記録して差し上げますわ。'
+	}
+	else {
+		_talk += '\1功績録は白紙でございます。\w9\nただ、余白にこのようなものが。\w8\0\s[7]\n\n\_q'
+		foreach _list ; _t {
+			_talk += '「' + SPLIT(_t, '|#|')[1] + '」\n'
+		}
+		_talk += '\_q\w8\1\n\n番外の称号でございます。\w8\0\s[1]\nこんなもの、\w9\n授けた覚えはありませんわ。'
+	}
+	_talk
 }
 
 //---- 1・2 頁目で、依頼の記録が見つからないとき
