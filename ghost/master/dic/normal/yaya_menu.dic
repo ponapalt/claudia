@@ -310,6 +310,10 @@ OnInputUserName
 //---- 入力欄が閉じられた（閉じるボタン、またはタイムアウト）
 OnUserInputCancel
 {
+	if reference[0] == 'OnInputFirstUserName' {
+		//---- 初回起動で名前を聞いたのに閉じられた（yaya_bootend.dic）
+		return FirstBoot.NoName
+	}
 	if reference[0] != 'OnInputUserName' {
 		return ''
 	}
