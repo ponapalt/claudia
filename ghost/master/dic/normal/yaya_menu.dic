@@ -291,12 +291,54 @@ Menu_CLAUDECODE
 	AYATEMPLATE.MenuItem("戻る","OpenMenu")
 }
 
-//---- 功績録（yaya_ccstats.dic）。頁は \x で分かれている
+//---- 功績録（yaya_ccstats.dic）。メニューから開くと 1 頁目を出し、回数を数える
 Menu_CCSTATS
 {
 	CCS.Record
 	--
-	//---- 最後はアンソニーが話しているので、選択肢はクローディアのバルーンに出す
+	CCSTATS.AfterItems
+}
+
+//---- 功績録の頁の切り替え（頁の上端の見出しから）
+Menu_CCPAGE1
+{
+	CCS.Record(1)
+	--
+	CCSTATS.AfterItems
+}
+
+Menu_CCPAGE2
+{
+	CCS.Record(2)
+	--
+	CCSTATS.AfterItems
+}
+
+Menu_CCPAGE3
+{
+	CCS.Record(3)
+	--
+	CCSTATS.AfterItems
+}
+
+Menu_CCPAGE4
+{
+	CCS.Record(4)
+	--
+	CCSTATS.AfterItems
+}
+
+Menu_CCPAGE5
+{
+	CCS.Record(5)
+	--
+	CCSTATS.AfterItems
+}
+
+//---- 功績録の各頁の下に付ける選択肢
+//  最後はアンソニーが話しているので、選択肢はクローディアのバルーンに出す
+CCSTATS.AfterItems
+{
 	'\w8\0\n'
 	--
 	AYATEMPLATE.MenuItem("本日の業務報告は？","Menu_CCTODAY")

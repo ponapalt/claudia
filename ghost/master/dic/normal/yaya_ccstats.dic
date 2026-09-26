@@ -930,31 +930,86 @@ CCS.TalkThousand : nonoverlap
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-//功績録。\x で頁を分けて読み上げる
+//功績録。頁ごとに独立したトークで、上端の見出し（CCS.Tabs）から頁を自由に切り替える
+//  _argv[0] 頁の番号（1〜5）。省略するとメニューから開いたものとして数え、
+//           1 頁目（依頼の記録が無ければ 3 頁目）を出す
 //------------------------------------------------------------------------------
 CCS.Record
 {
-	_talk = ''
+	_page = 0
 
-	CCS.Count('record')
-	//---- 読み残しがあれば、ここで全部読む
-	if CCS.HistPending {
-		CCS.HistRead(100000)
-	}
-	if ccsbdone != 1 {
-		CCS.Backfill(100000)
-	}
-	if ccshn > 0 {
-		_talk += CCS.PageHistory + '\x' + CCS.PageLand + '\x'
+	if _argc > 0 {
+		_page = _argv[0]
 	}
 	else {
-		_talk += '\u\s[10]\0\s[4]\b[2]Claude Code の依頼の記録が\w9\n見つかりませんわ。\w8\1わたくしどもで数えた分だけ\w9\nお読みいたします。\w8\0\n\n'
+		CCS.Count('record')
+		//---- 読み残しがあれば、ここで全部読む
+		if CCS.HistPending {
+			CCS.HistRead(100000)
+		}
+		if ccsbdone != 1 {
+			CCS.Backfill(100000)
+		}
+		_page = 3
+		if ccshn > 0 {
+			_page = 1
+		}
 	}
-	_talk += CCS.PageWatch + '\x' + CCS.PageTitles
+	//---- 番外の称号が 1 つも無ければ、5 頁目は出さない
+	if _page == 5 && ARRAYSIZE(CCS.OddTitles) == 0 {
+		_page = 4
+	}
+	case _page {
+		when 1 {
+			CCS.PageHistory
+		}
+		when 2 {
+			CCS.PageLand
+		}
+		when 3 {
+			CCS.PageWatch
+		}
+		when 5 {
+			CCS.PageOddTitles
+		}
+		others {
+			CCS.PageTitles
+		}
+	}
+}
+
+//---- 頁の上端の見出し。今の頁は墨の太字で示し、ほかの頁は選択肢（深赤土）にする
+//  _argv[0] 今の頁の番号。選ぶと Menu_CCPAGE1〜5（yaya_menu.dic）が呼ばれる
+//  各頁は、見出しから表までを \_q の中で一度に出し、そのあとの掛け合いだけ間を取って話す
+CCS.Tabs
+{
+	_name = ('依頼', '領地', '見届け', '称号', '番外')
+	_n    = 4
+	_i    = 0
+	_talk = ''
+
 	if ARRAYSIZE(CCS.OddTitles) > 0 {
-		_talk += '\x' + CCS.PageOddTitles
+		_n = 5
 	}
-	_talk
+	for _i = 0 ; _i < _n ; _i++ {
+		if _i > 0 {
+			_talk += '｜'
+		}
+		if _i + 1 == _argv[0] {
+			_talk += '\f[bold,1]' + _name[_i] + '\f[default]'
+		}
+		else {
+			_talk += '\q[' + _name[_i] + ',Menu_CCPAGE' + (_i + 1) + ']'
+		}
+	}
+	_talk + '\n\f[align,center]―― ◇ ――\n\f[align,left]'
+}
+
+//---- 1・2 頁目で、依頼の記録が見つからないとき
+//  _argv[0] 頁の番号
+CCS.PageNoHistory
+{
+	'\u\s[10]\0\s[4]\b[2]\_q' + CCS.Tabs(_argv[0]) + 'Claude Code の依頼の記録が\n見つかりませんわ。\_q\w8\1わたくしどもで数えた分は、\w9\n「見届け」の頁にございます。'
 }
 
 //---- 1 頁目: 依頼の記録
@@ -963,7 +1018,10 @@ CCS.PageHistory
 	_span = (GETSECCOUNT - ccshfirst) / 86400 + 1
 	_talk = ''
 
-	_talk  = '\u\s[10]\0\s[26]\b[2]あなたの功績録ですわ。\w9\nとくとご覧なさい。\w8\n\n\_q'
+	if ccshn == 0 {
+		return CCS.PageNoHistory(1)
+	}
+	_talk  = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(1) + 'あなたの功績録ですわ。\nとくとご覧なさい。\n\n'
 	_talk += '・記録の始まり　' + CCS.SecDate(ccshfirst) + '\n'
 	_talk += '・登城した日　' + CCS.Comma(ccshdays) + '日（' + CCS.Comma(_span) + '日のうち）\n'
 	_talk += '・依頼　' + CCS.Comma(ccshn) + '件\n'
@@ -981,12 +1039,18 @@ CCS.PageHistory
 //---- 2 頁目: 領地と時刻
 CCS.PageLand
 {
+	_top  = IARRAY
+	_peak = 0
+	_late = 0
+	_talk = ''
+
+	if ccshn == 0 {
+		return CCS.PageNoHistory(2)
+	}
 	_top  = SPLIT(CCS.TopProject, '|#|')
 	_peak = CCS.PeakHour
 	_late = CCS.HourSum(0, 4)
-	_talk = ''
-
-	_talk  = '\u\s[10]\0\s[0]\b[2]治めた領地と、働く時刻ですわ。\w8\n\n\_q'
+	_talk  = '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(2) + '治めた領地と、働く時刻ですわ。\n\n'
 	_talk += '・治めた領地　' + ARRAYSIZE(ccshpname) + 'か所\n'
 	if ARRAYSIZE(_top) >= 2 {
 		_talk += '・いちばんの領地　' + _top[0] + '（' + CCS.Comma(_top[1]) + '件）\n'
@@ -1013,9 +1077,9 @@ CCS.PageWatch
 
 	CCS.Init
 	if ccsanswer + ccsdone + ccsbusy + ccsnew == 0 {
-		return '\u\s[10]\0\s[0]\b[2]わたくしどもが見届けた分は、\w9\nまだこれからですわ。\w8\1記録は' + CCS.SecDate(ccssince) + 'より\w9\nつけ始めております。'
+		return '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(3) + 'わたくしどもが見届けた分は、\nまだこれからですわ。\_q\w8\1記録は' + CCS.SecDate(ccssince) + 'より\w9\nつけ始めております。'
 	}
-	_talk  = '\u\s[10]\0\s[26]\b[2]わたくしどもが見届けた分ですわ。\w9\n' + CCS.SecDate(ccssince) + 'から数えていますの。\w8\n\n\_q'
+	_talk  = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(3) + 'わたくしどもが見届けた分ですわ。\n' + CCS.SecDate(ccssince) + 'から数えていますの。\n\n'
 	_talk += '・返事待ちに応えた　' + CCS.Comma(ccsanswer) + '回\n'
 	_talk += '・大仕事の完了（1分半以上）　' + CCS.Comma(ccsdone) + '回\n'
 	_talk += '・10分を超える長考　' + CCS.Comma(ccslong) + '回\n'
@@ -1040,9 +1104,9 @@ CCS.PageTitles
 	_talk = ''
 
 	if ARRAYSIZE(_list) == 0 {
-		return '\u\s[10]\0\s[0]\b[2]称号は、まだございませんわね。\w9\nこれからの働きに期待しますわ。\w8\1精進でございます。'
+		return '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(4) + '称号は、まだございませんわね。\nこれからの働きに期待しますわ。\_q\w8\1精進でございます。'
 	}
-	_talk = '\u\s[10]\0\s[26]\b[2]以上の功績をもって、\w9\n次の称号を授けますわ。\w8\n\n\_q'
+	_talk = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(4) + '以上の功績をもって、\n次の称号を授けますわ。\n\n'
 	foreach _list ; _t {
 		_talk += '「' + SPLIT(_t, '|#|')[1] + '」\n'
 	}
@@ -1063,7 +1127,7 @@ CCS.PageOddTitles
 	_t    = ''
 	_talk = ''
 
-	_talk = '\u\s[10]\0\s[7]\b[2]‥\w5‥\w5それから、アンソニーが\w9\n記録帳の余白に\w9\n妙なものを書いていましたわ。\w8\n\n\_q'
+	_talk = '\u\s[10]\0\s[7]\b[2]\_q' + CCS.Tabs(5) + '‥‥アンソニーが記録帳の余白に\n妙なものを書いていましたわ。\n\n'
 	foreach _list ; _t {
 		_talk += '「' + SPLIT(_t, '|#|')[1] + '」\n'
 	}
