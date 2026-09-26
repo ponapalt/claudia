@@ -409,6 +409,7 @@ function Build-Common {
 }
 
 # thumbnail for the balloon list: balloons0 with the name written in it
+# (.pnr, not .png: it has transparent corners and must be shown with its alpha as is)
 function Build-Thumbnail {
     param([string]$Dir)
     $src = [System.Drawing.Image]::FromFile((Join-Path $Dir 'balloons0.png'))
@@ -419,7 +420,7 @@ function Build-Thumbnail {
     $src.Dispose()
     [Gen]::Caption($tb, 'Claudia', [System.Drawing.Color]::FromArgb(230, 180, 83, 47), 26.0, 20.0, 34.0)
     [Gen]::Caption($tb, 'et Anthony', [System.Drawing.Color]::FromArgb(210, 107, 78, 61), 30.0, 58.0, 18.0)
-    Save-Png $tb (Join-Path $Dir 'thumbnail.png')
+    Save-Png $tb (Join-Path $Dir 'thumbnail.pnr')
 }
 
 # --- side version -------------------------------------------------------
