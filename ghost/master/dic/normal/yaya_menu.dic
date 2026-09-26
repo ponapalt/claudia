@@ -330,11 +330,16 @@ Menu_CCCLOSE
 //---- filewatch を登録し直す（辞書を読み込み直したあとなど）
 Menu_CCWATCH
 {
-	CC.Start
-	--
-	CC.TrayIconSync
-	--
-	'\0\s[0]見張りを立て直しましたわ。\w8\1つつがなく。\e'
+	if !CC.HasSessionDir {
+		'\u\s[10]\0\s[4]Claude Code のセッションの置き場所が\w9\n見当たりませんわ。\w8\1まだお入れでないのかと。\e'
+	}
+	else {
+		CC.Start
+		--
+		CC.TrayIconSync
+		--
+		'\0\s[0]見張りを立て直しましたわ。\w8\1つつがなく。\e'
+	}
 }
 
 //---- キャンセルされた
