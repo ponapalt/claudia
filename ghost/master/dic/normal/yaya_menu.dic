@@ -67,19 +67,18 @@ MENU.InfoBar
 
 //---- メインメニューの情報バーの中身
 //  「9月26日(土) 17:13  依頼 12件・稼働 2・待ち 1」
-//  _argv は CC.Scan の結果。Claude Code が無い PC では日付と時刻だけ
+//  _argv は CC.Scan の結果（セッションのハッシュ）。Claude Code が無い PC では日付と時刻だけ
 MENU.MainInfo
 {
 	_t    = GETTIME
 	_text = _t[1] + '月' + _t[2] + '日(' + SUBSTR('日月火水木金土', _t[3], 1) + ') ' + /
 	        _t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2)
 	_wait = 0
-	_r    = IARRAY
+	_s    = IHASH()
 
 	if CC.HasSessionDir {
-		foreach _argv ; _a {
-			_r = SPLIT(_a, '|#|')
-			if _r[0] == 'waiting' {
+		foreach _argv ; _s {
+			if _s['status'] == 'waiting' {
 				_wait += 1
 			}
 		}
@@ -403,17 +402,16 @@ Menu_CLAUDECODE
 	_n    = ARRAYSIZE(_list)
 	_wait = 0
 	_busy = 0
-	_r    = IARRAY
+	_s    = IHASH()
 
 	if _n == 0 {
 		return '\0\s[4]もう誰も働いておりませんわ。\e'
 	}
-	foreach _list ; _a {
-		_r = SPLIT(_a, '|#|')
-		if _r[0] == 'waiting' {
+	foreach _list ; _s {
+		if _s['status'] == 'waiting' {
 			_wait += 1
 		}
-		elseif _r[0] == 'busy' {
+		elseif _s['status'] == 'busy' {
 			_busy += 1
 		}
 	}

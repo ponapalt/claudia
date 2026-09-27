@@ -16,6 +16,9 @@
 //  kind        interactive（端末で動いている）/ それ以外（バックグラウンド）
 //  name        セッションの呼び名。cwd は作業フォルダ
 //
+//このファイルは PARSEJSON（YAYA 600 系）でハッシュにして読み（CC.ReadSession）、
+//キーの名前のまま _s['status'] のように引く。セッションの一覧（CC.Scan）はその配列。
+//
 //このファイルは状態が変わったときにだけ書き換えられる（作業中でも中身が同じなら
 //触られない）ので、\![execute,filewatch] で見張っておけば、状態が変わった瞬間だけ
 //知ることができる。Claude Code 側の設定は何も要らない。
@@ -102,29 +105,31 @@ CC.ReadFile
 }
 
 //------------------------------------------------------------------------------
-//JSON から "キー":"値" の値を取り出す
-//  _argv[0] JSON の文字列 / _argv[1] キー
+//JSON の文字列 1 つをハッシュにする。JSON のオブジェクトでなければ空のハッシュ
+//書きかけのファイルなどで警告（W0026）を出さないよう、{ で始まって } で終わるものだけを解析する
+//無いキーを引くと空文字列になるので、呼ぶ側はキーがあるかを確かめなくてよい
 //------------------------------------------------------------------------------
-CC.Str
+CC.ParseJSON
 {
-	_value = ''
-	if RE_SEARCH(_argv[0], '"' + _argv[1] + '":"([^"]*)"') {
-		//---- RE_GETSTR(0) は [マッチ全体, 1 番目の括弧, ...] の配列
-		_value = RE_GETSTR(0)[1]
+	_text = _argv[0]
+	_h    = IHASH()
+
+	if SUBSTR(_text, 0, 1) == '{' && SUBSTR(_text, STRLEN(_text) - 1, 1) == '}' {
+		_h = PARSEJSON(_text)
+		if GETTYPE(_h) != 5 {
+			_h = IHASH()
+		}
 	}
-	_value
+	_h
 }
 
 //------------------------------------------------------------------------------
-//JSON から "キー":数値 の値を取り出す
+//セッションのファイル 1 つを読んで、ハッシュにする。読めなければ空のハッシュ
+//キーは JSON のまま（status / name / cwd / waitingFor / statusUpdatedAt / kind / sessionId）
 //------------------------------------------------------------------------------
-CC.Num
+CC.ReadSession
 {
-	_value = 0
-	if RE_SEARCH(_argv[0], '"' + _argv[1] + '":([0-9]+)') {
-		_value = TOINT(RE_GETSTR(0)[1])
-	}
-	_value
+	CC.ParseJSON(CC.ReadFile(_argv[0]))
 }
 
 //------------------------------------------------------------------------------
@@ -135,15 +140,13 @@ CC.FileNames
 	_dir   = CC.SessionDir
 	_names = IARRAY
 	_files = IARRAY
-	_i     = 0
 	_name  = ''
 
 	if STRLEN(_dir) == 0 {
 		return _names
 	}
 	_files = SPLIT(FENUM(_dir), ',')
-	for _i = 0 ; _i < ARRAYSIZE(_files) ; _i++ {
-		_name = _files[_i]
+	foreach _files ; _name {
 		//---- .json 以外（peerToken の .key など）は相手にしない
 		if STRLEN(_name) <= 5 {
 			continue
@@ -157,34 +160,38 @@ CC.FileNames
 }
 
 //------------------------------------------------------------------------------
-//JSON 1 件を、扱いやすい 1 本の文字列にする
-//  0 status / 1 name / 2 cwd / 3 waitingFor / 4 statusUpdatedAt / 5 kind / 6 sessionId
-//------------------------------------------------------------------------------
-CC.Record
-{
-	CC.Str(_argv[0], 'status') + '|#|' + CC.Str(_argv[0], 'name') + '|#|' + /
-	CC.Str(_argv[0], 'cwd') + '|#|' + CC.Str(_argv[0], 'waitingFor') + '|#|' + /
-	CC.Num(_argv[0], 'statusUpdatedAt') + '|#|' + CC.Str(_argv[0], 'kind') + '|#|' + /
-	CC.Str(_argv[0], 'sessionId')
-}
-
-//------------------------------------------------------------------------------
-//起動中のセッションを全部読む
+//起動中のセッションを全部読む。セッションごとのハッシュ（CC.ReadSession）の配列
 //------------------------------------------------------------------------------
 CC.Scan
 {
 	_dir   = CC.SessionDir
 	_names = CC.FileNames
 	_list  = IARRAY
-	_i     = 0
-	_json  = ''
+	_name  = ''
+	_s     = IHASH()
 
-	for _i = 0 ; _i < ARRAYSIZE(_names) ; _i++ {
-		_json = CC.ReadFile(_dir + '/' + _names[_i])
-		if STRLEN(_json) == 0 {
-			continue
+	foreach _names ; _name {
+		_s = CC.ReadSession(_dir + '/' + _name)
+		if HASH_SIZE(_s) > 0 {
+			_list ,= _s
 		}
-		_list ,= CC.Record(_json)
+	}
+	_list
+}
+
+//------------------------------------------------------------------------------
+//返事待ちのセッション（端末で動いているもの）だけを並べる
+//  _argv は CC.Scan の結果
+//------------------------------------------------------------------------------
+CC.WaitingOf
+{
+	_list = IARRAY
+	_s    = IHASH()
+
+	foreach _argv ; _s {
+		if _s['status'] == 'waiting' && _s['kind'] == 'interactive' {
+			_list ,= _s
+		}
 	}
 	_list
 }
@@ -192,33 +199,32 @@ CC.Scan
 //------------------------------------------------------------------------------
 //いちばん手前のセッション（端末で動いていて、直近に状態が変わったもの）を 1 つ選ぶ
 //どれが最前面のウィンドウかは分からないので、状態が最後に動いたものを「今の相手」とみなす
+//セッションのハッシュを返す。無ければ空のハッシュ
 //------------------------------------------------------------------------------
 CC.Front
 {
 	_list  = CC.Scan
-	_best  = ''
+	_best  = IHASH()
 	_bestt = -1
-	_i     = 0
-	_rec   = IARRAY
+	_s     = IHASH()
 	_time  = 0
 
-	for _i = 0 ; _i < ARRAYSIZE(_list) ; _i++ {
-		_rec = SPLIT(_list[_i], '|#|')
+	foreach _list ; _s {
 		//---- 端末で動いているものだけを相手にする
-		if _rec[5] != 'interactive' {
+		if _s['kind'] != 'interactive' {
 			continue
 		}
-		_time = TOINT(_rec[4])
+		_time = TOINT(_s['statusUpdatedAt'])
 		if _time > _bestt {
 			_bestt = _time
-			_best  = _list[_i]
+			_best  = _s
 		}
 	}
 	_best
 }
 
 //------------------------------------------------------------------------------
-//cwd からフォルダ名だけを取り出す（JSON の中では \ が \\ になっている）
+//cwd からフォルダ名だけを取り出す
 //------------------------------------------------------------------------------
 CC.ProjectName
 {
@@ -234,7 +240,7 @@ CC.ProjectName
 //------------------------------------------------------------------------------
 //お知らせに添えるセッションの呼び名。メニューの一覧に出るのと同じ name（claudia-c9 など）
 //name が無ければ作業フォルダの名前にする
-//  _argv[0] name / _argv[1] cwd（JSON のまま）
+//  _argv[0] name / _argv[1] cwd
 //------------------------------------------------------------------------------
 CC.Label
 {
@@ -242,8 +248,16 @@ CC.Label
 	if STRLEN(_label) == 0 {
 		_label = CC.ProjectName(_argv[1])
 	}
-	//---- さくらスクリプトや埋め込みとして解釈されそうな文字を外す
-	RE_REPLACE(_label, '[%\[\]\\]', '')
+	CC.Safe(_label)
+}
+
+//------------------------------------------------------------------------------
+//さくらスクリプトや埋め込みとして解釈されそうな文字（% [ ] と円記号）を外す
+//辞書の文字列では円記号を 2 つ重ねても 1 文字になるので、正規表現には入れずに REPLACE で外す
+//------------------------------------------------------------------------------
+CC.Safe
+{
+	REPLACE(RE_REPLACE(_argv[0], '[%\[\]]', ''), '\', '')
 }
 
 //------------------------------------------------------------------------------
@@ -284,19 +298,22 @@ CC.WithLabel
 //ただし AskUserQuestion は答えるまで記録に書き出されないことがある。そのときは
 //最後のメッセージがユーザーの発言のままなので、何もわからないものとして扱う。
 //記録は大きくなるので、末尾の 256KB だけを読む。
+//
+//ツールは、その行の JSON の message.content に、こういう形の要素で入っている。
+//  {"type":"tool_use","id":"...","name":"Bash","input":{"command":"...","description":"..."}}
+//  ExitPlanMode は input.plan、AskUserQuestion は input.questions[0].question に中身がある
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-//会話の記録のパス。_argv[0] cwd（JSON のまま）/ _argv[1] sessionId
+//会話の記録のパス。_argv[0] cwd / _argv[1] sessionId
 //------------------------------------------------------------------------------
 CC.TranscriptPath
 {
 	_home = GETENV("USERPROFILE")
-	_cwd  = REPLACE(_argv[0], '\\', '\')
 	_path = ''
-	if STRLEN(_home) > 0 && STRLEN(_cwd) > 0 && STRLEN(_argv[1]) > 0 {
+	if STRLEN(_home) > 0 && STRLEN(_argv[0]) > 0 && STRLEN(_argv[1]) > 0 {
 		_path = REPLACE(_home, '\', '/') + '/.claude/projects/' + /
-		        RE_REPLACE(_cwd, '[^A-Za-z0-9]', '-') + '/' + _argv[1] + '.jsonl'
+		        RE_REPLACE(_argv[0], '[^A-Za-z0-9]', '-') + '/' + _argv[1] + '.jsonl'
 	}
 	_path
 }
@@ -336,57 +353,72 @@ CC.LastMessage
 }
 
 //------------------------------------------------------------------------------
-//JSON の中の "キー":"値" から、値の最初の 1 行を取り出して、トークに入れられる形にする
-//  _argv[0] JSON / _argv[1] キー / _argv[2] 最大の文字数
-//エスケープ（\n や \"）の手前で切るので、\ や " は入らない
+//文章の最初の 1 行を取り出して、トークに入れられる形にする
+//  _argv[0] 文章 / _argv[1] 最大の文字数
 //------------------------------------------------------------------------------
 CC.Snippet
 {
-	_text = ''
-	if RE_SEARCH(_argv[0], '"' + _argv[1] + '":"([^"\\]*)') {
-		_text = RE_GETSTR(0)[1]
-	}
+	//---- 頭の空白と空行を飛ばして、最初の 1 行だけ
+	_text = RE_REPLACE(_argv[0], '^\s+', '')
+	_text = SPLIT(REPLACE(_text, CHR(13), ''), CHR(10))[0]
 	//---- 計画の見出しの「# Plan: 」を落とす
 	_text = RE_REPLACE(_text, '^#+ *', '')
 	_text = RE_REPLACE(_text, '^[Pp]lan: *', '')
-	//---- さくらスクリプトや埋め込みとして解釈されそうな文字を外す
-	_text = RE_REPLACE(_text, '[%\[\]]', '')
-	if STRLEN(_text) > _argv[2] {
-		_text = SUBSTR(_text, 0, _argv[2] - 1) + '…'
+	_text = CC.Safe(_text)
+	if STRLEN(_text) > _argv[1] {
+		_text = SUBSTR(_text, 0, _argv[1] - 1) + '…'
 	}
 	_text
 }
 
 //------------------------------------------------------------------------------
-//止まっているツールと、その中身を返す。わからなければ空文字列
-//  _argv[0] cwd（JSON のまま）/ _argv[1] sessionId
-//  戻り値  ツール名|#|中身
+//止まっているツールと、その中身を返す
+//  _argv[0] cwd / _argv[1] sessionId
+//  戻り値  ハッシュ。tool ツール名 / detail 中身。わからなければ空のハッシュ
 //------------------------------------------------------------------------------
 CC.Pending
 {
-	_last   = CC.LastMessage(CC.TranscriptPath(_argv[0], _argv[1]))
-	_tool   = ''
-	_detail = ''
+	CC.PendingIn(CC.LastMessage(CC.TranscriptPath(_argv[0], _argv[1])))
+}
+
+//---- CC.Pending の続き。_argv[0] 会話の記録の最後のメッセージの行
+CC.PendingIn
+{
+	_last    = _argv[0]
+	_msg     = IHASH()
+	_content = IARRAY
+	_c       = IHASH()
+	_use     = IHASH()
+	_input   = IHASH()
+	_detail  = ''
 
 	if STRSTR(_last, '"role":"assistant"', 0) < 0 {
-		return ''
+		return IHASH()
 	}
-	if !RE_SEARCH(_last, '"type":"tool_use","id":"[^"]*","name":"([^"]*)"') {
-		return ''
+	_msg     = CC.ParseJSON(_last)
+	_content = _msg['message']['content']
+	//---- ツールがいくつも並んでいたら、最後のもので止まっている
+	foreach _content ; _c {
+		if _c['type'] == 'tool_use' {
+			_use = _c
+		}
 	}
-	_tool = RE_GETSTR(0)[1]
-	case _tool {
+	if HASH_SIZE(_use) == 0 {
+		return IHASH()
+	}
+	_input = _use['input']
+	case _use['name'] {
 		when 'ExitPlanMode' {
-			_detail = CC.Snippet(_last, 'plan', 24)
+			_detail = CC.Snippet(_input['plan'], 24)
 		}
 		when 'AskUserQuestion' {
-			_detail = CC.Snippet(_last, 'question', 24)
+			_detail = CC.Snippet(_input['questions'][0]['question'], 24)
 		}
 		others {
-			_detail = CC.Snippet(_last, 'description', 24)
+			_detail = CC.Snippet(_input['description'], 24)
 		}
 	}
-	_tool + '|#|' + _detail
+	IHASH('tool', _use['name'], 'detail', _detail)
 }
 
 
@@ -403,7 +435,7 @@ CC.Pending
 //  ccbusylabel busy になったセッションの呼び名（CC.Label）
 //  cctalkat   最後に Claude Code の話をした時刻（Unix 秒）
 //  ccbusytold 長考の話をもうしたか
-//  ccwatched  今ファイルの見張りを立てているファイル名（前後をカンマで挟む）
+//  ccwatched  今ファイルの見張りを立てているファイル名（ハッシュのキー）
 //  ccadded    直近の見張り立て直しで新しく増えたセッションの数
 //  ccaddedfile そのうち最後に増えたセッションのファイル名
 //  ccremindat 返事待ちのベルを最後に鳴らした時刻（Unix 秒）。0 ならリマインダなし
@@ -420,7 +452,7 @@ CC.Reset
 	ccbusylabel = ''
 	cctalkat   = 0
 	ccbusytold = 0
-	ccwatched  = ','
+	ccwatched  = IHASH()
 	ccadded    = 0
 	ccaddedfile = ''
 	ccremindat = 0
@@ -432,16 +464,14 @@ CC.Reset
 //------------------------------------------------------------------------------
 CC.Prime
 {
-	_rec = CC.Front
-	_r   = IARRAY
+	_s = CC.Front
 
-	if STRLEN(_rec) > 0 {
-		_r        = SPLIT(_rec, '|#|')
-		ccsession = _r[6]
-		ccstatus  = _r[0]
-		ccbusyid  = _r[6]
-		ccbusyat  = TOINT(_r[4])
-		ccbusylabel = CC.Label(_r[1], _r[2])
+	if HASH_SIZE(_s) > 0 {
+		ccsession = _s['sessionId']
+		ccstatus  = _s['status']
+		ccbusyid  = _s['sessionId']
+		ccbusyat  = TOINT(_s['statusUpdatedAt'])
+		ccbusylabel = CC.Label(_s['name'], _s['cwd'])
 	}
 }
 
@@ -455,9 +485,8 @@ CC.SyncWatches
 	_dir   = CC.SessionDir
 	_names = IARRAY
 	_old   = IARRAY
-	_now   = ','
+	_now   = IHASH()
 	_tags  = ''
-	_i     = 0
 	_name  = ''
 
 	ccadded     = 0
@@ -465,16 +494,16 @@ CC.SyncWatches
 	if STRLEN(_dir) == 0 {
 		return ''
 	}
-	if GETTYPE(ccwatched) == 0 {
-		ccwatched = ','
+	//---- 前の版ではカンマで挟んだ文字列だった
+	if GETTYPE(ccwatched) != 5 {
+		ccwatched = IHASH()
 	}
 
 	//---- 増えた分の見張りを立てる
 	_names = CC.FileNames
-	for _i = 0 ; _i < ARRAYSIZE(_names) ; _i++ {
-		_name = _names[_i]
-		_now += _name + ','
-		if STRSTR(ccwatched, ',' + _name + ',', 0) < 0 {
+	foreach _names ; _name {
+		_now[_name] = 1
+		if !HASH_EXIST(_name, ccwatched) {
 			_tags  += '\![execute,filewatch,' + _dir + '/' + _name + /
 			          ',--async=OnClaudeCodeFile,--debounce=200]'
 			ccadded    += 1
@@ -483,13 +512,9 @@ CC.SyncWatches
 	}
 
 	//---- 無くなった分の見張りを解く
-	_old = SPLIT(ccwatched, ',')
-	for _i = 0 ; _i < ARRAYSIZE(_old) ; _i++ {
-		_name = _old[_i]
-		if STRLEN(_name) == 0 {
-			continue
-		}
-		if STRSTR(_now, ',' + _name + ',', 0) < 0 {
+	_old = HASH_KEYS(ccwatched)
+	foreach _old ; _name {
+		if !HASH_EXIST(_name, _now) {
 			_tags += '\![cancel,filewatch,' + _dir + '/' + _name + ']'
 		}
 	}
@@ -535,17 +560,11 @@ CC.Start
 //------------------------------------------------------------------------------
 CC.TrayIconWanted
 {
-	_list = CC.Scan
+	_wait = CC.WaitingOf(CC.Scan)
 	_want = 'claudia'
-	_i    = 0
-	_r    = IARRAY
 
-	for _i = 0 ; _i < ARRAYSIZE(_list) ; _i++ {
-		_r = SPLIT(_list[_i], '|#|')
-		if _r[0] == 'waiting' && _r[5] == 'interactive' {
-			_want = 'anthony'
-			break
-		}
+	if ARRAYSIZE(_wait) > 0 {
+		_want = 'anthony'
 	}
 	_want
 }
@@ -639,7 +658,7 @@ CC.DirChanged
 {
 	_tags = ''
 	_talk = ''
-	_json = ''
+	_s    = IHASH()
 
 	if reference[2] == 'deleted' {
 		return ''
@@ -662,8 +681,8 @@ CC.DirChanged
 	//---- 起動時にすでに動いていた分は CC.Start が ccadded を 0 に戻すので、ここには来ない
 	if ccadded > 0 && CC.TalkOK(60) {
 		cctalkat = GETSECCOUNT
-		_json    = CC.ReadFile(CC.SessionDir + '/' + ccaddedfile)
-		_talk    = CC.WithLabel(CC.TalkNewFor(CC.Str(_json, 'cwd')), CC.Label(CC.Str(_json, 'name'), CC.Str(_json, 'cwd')))
+		_s       = CC.ReadSession(CC.SessionDir + '/' + ccaddedfile)
+		_talk    = CC.WithLabel(CC.TalkNewFor(_s['cwd']), CC.Label(_s['name'], _s['cwd']))
 	}
 
 	if STRLEN(_talk) > 0 {
@@ -708,14 +727,14 @@ OnClaudeCodeFileFailure
 CC.NoticeFile
 {
 	//---- if の中で初めて代入したローカル変数は外に出ないので、先に置く
-	_json    = ''
+	_s       = IHASH()
 	_status  = ''
 	_id      = ''
 	_at      = 0
 	_waiting = ''
 	_before  = ''
 	_busyfor = 0
-	_pending = IARRAY
+	_pending = IHASH()
 	_talk    = ''
 	_sound   = ''
 	_label   = ''
@@ -732,20 +751,17 @@ CC.NoticeFile
 		return _talk
 	}
 
-	_json = CC.ReadFile(_argv[0])
-	if STRLEN(_json) == 0 {
-		return ''
-	}
-	//---- 端末で動いているものだけを相手にする
-	if CC.Str(_json, 'kind') != 'interactive' {
+	_s = CC.ReadSession(_argv[0])
+	//---- 端末で動いているものだけを相手にする（読めなかったときもここで帰る）
+	if _s['kind'] != 'interactive' {
 		return ''
 	}
 
-	_status  = CC.Str(_json, 'status')
-	_waiting = CC.Str(_json, 'waitingFor')
-	_at      = CC.Num(_json, 'statusUpdatedAt')
-	_id      = CC.Str(_json, 'sessionId')
-	_label   = CC.Label(CC.Str(_json, 'name'), CC.Str(_json, 'cwd'))
+	_status  = _s['status']
+	_waiting = _s['waitingFor']
+	_at      = TOINT(_s['statusUpdatedAt'])
+	_id      = _s['sessionId']
+	_label   = CC.Label(_s['name'], _s['cwd'])
 
 	//---- 続けて作業している時間を数える（ccstatus がまだ前の状態のうちに呼ぶ）
 	CC.MarkWork
@@ -799,8 +815,8 @@ CC.NoticeFile
 				ccremindat = GETSECCOUNT
 			}
 			if CC.TalkOK(15) {
-				_pending = SPLIT(CC.Pending(CC.Str(_json, 'cwd'), _id), '|#|')
-				_talk    = CC.TalkWaiting(_waiting, _pending[0], _pending[1])
+				_pending = CC.Pending(_s['cwd'], _id)
+				_talk    = CC.TalkWaiting(_waiting, _pending['tool'], _pending['detail'])
 			}
 			if ccbelloff != 1 {
 				_sound = CC.WaitSound(_waiting, 2)
@@ -894,11 +910,9 @@ CC.IsPermission
 CC.Remind
 {
 	_now     = GETSECCOUNT
-	_list    = IARRAY
-	_found   = ''
-	_i       = 0
-	_r       = IARRAY
-	_pending = IARRAY
+	_wait    = IARRAY
+	_s       = IHASH()
+	_pending = IHASH()
 	_talk    = ''
 
 	if GETTYPE(ccremindat) == 0 || ccremindat <= 0 || ccremindoff == 1 {
@@ -914,15 +928,8 @@ CC.Remind
 	}
 
 	//---- まだ返事待ちのセッションがあるか
-	_list = CC.Scan
-	for _i = 0 ; _i < ARRAYSIZE(_list) ; _i++ {
-		_r = SPLIT(_list[_i], '|#|')
-		if _r[0] == 'waiting' && _r[5] == 'interactive' {
-			_found = _list[_i]
-			break
-		}
-	}
-	if STRLEN(_found) == 0 {
+	_wait = CC.WaitingOf(CC.Scan)
+	if ARRAYSIZE(_wait) == 0 {
 		//---- もう返事をした
 		ccremindat = 0
 		ccremindn  = 0
@@ -935,11 +942,11 @@ CC.Remind
 		//---- これで最後
 		ccremindat = 0
 	}
-	_r       = SPLIT(_found, '|#|')
-	_pending = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
-	_talk    = CC.WithLabel(CC.TalkRemind(ccremindn, _pending[1], CC.IsPermission(_r[3])), CC.Label(_r[1], _r[2]))
+	_s       = _wait[0]
+	_pending = CC.Pending(_s['cwd'], _s['sessionId'])
+	_talk    = CC.WithLabel(CC.TalkRemind(ccremindn, _pending['detail'], CC.IsPermission(_s['waitingFor'])), CC.Label(_s['name'], _s['cwd']))
 	cctalkat = _now
-	CC.WaitSound(_r[3], 1) + _talk
+	CC.WaitSound(_s['waitingFor'], 1) + _talk
 }
 
 //------------------------------------------------------------------------------
@@ -964,12 +971,11 @@ OnClaudeCodeBootCheck
 CC.BootCheck
 {
 	_now     = GETSECCOUNT
-	_list    = IARRAY
-	_first   = ''
+	_wait    = IARRAY
 	_labels  = ''
 	_i       = 0
-	_r       = IARRAY
-	_pending = IARRAY
+	_s       = IHASH()
+	_pending = IHASH()
 
 	if ccremindoff == 1 {
 		return ''
@@ -979,30 +985,23 @@ CC.BootCheck
 		return ''
 	}
 
-	_list = CC.Scan
-	for _i = 0 ; _i < ARRAYSIZE(_list) ; _i++ {
-		_r = SPLIT(_list[_i], '|#|')
-		if _r[0] != 'waiting' || _r[5] != 'interactive' {
-			continue
-		}
-		if STRLEN(_first) == 0 {
-			_first = _list[_i]
-		}
-		else {
+	_wait = CC.WaitingOf(CC.Scan)
+	if ARRAYSIZE(_wait) == 0 {
+		return ''
+	}
+	foreach _wait ; _i, _s {
+		if _i > 0 {
 			_labels += '、'
 		}
-		_labels += CC.Label(_r[1], _r[2])
-	}
-	if STRLEN(_first) == 0 {
-		return ''
+		_labels += CC.Label(_s['name'], _s['cwd'])
 	}
 
 	ccremindat = _now
 	ccremindn  = 0
 	cctalkat   = _now
-	_r       = SPLIT(_first, '|#|')
-	_pending = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
-	CC.WaitSound(_r[3], 1) + CC.WithLabel(CC.TalkBootWaiting(_pending[1]), _labels)
+	_s       = _wait[0]
+	_pending = CC.Pending(_s['cwd'], _s['sessionId'])
+	CC.WaitSound(_s['waitingFor'], 1) + CC.WithLabel(CC.TalkBootWaiting(_pending['detail']), _labels)
 }
 
 //------------------------------------------------------------------------------
@@ -1129,11 +1128,11 @@ CC.LongWork
 //------------------------------------------------------------------------------
 //作業フォルダがこのゴースト（悪役令嬢クローディア）のものなら 1
 //clone したフォルダでも、SSP にインストールしたフォルダでも、同じ場所にこの辞書がある
-//  _argv[0] cwd（JSON のまま）
+//  _argv[0] cwd
 //------------------------------------------------------------------------------
 CC.IsSelf
 {
-	_cwd = REPLACE(_argv[0], '\\', '/')
+	_cwd = REPLACE(_argv[0], '\', '/')
 	_is  = 0
 	if STRLEN(_cwd) > 0 && FSIZE(_cwd + '/ghost/master/dic/normal/yaya_claudecode.dic') > 0 {
 		_is = 1
@@ -1151,7 +1150,7 @@ CC.IsLate
 	_is
 }
 
-//---- 新しいセッションのトーク。_argv[0] cwd（JSON のまま）
+//---- 新しいセッションのトーク。_argv[0] cwd
 CC.TalkNewFor
 {
 	_talk = ''
@@ -1238,7 +1237,7 @@ CC.Duration
 
 //------------------------------------------------------------------------------
 //起動中のセッションを並べた本文を作る。1 件も無ければ空文字列。最後の行に改行は付けない
-//  _argv は CC.Scan の結果。返事待ちを先に並べる
+//  _argv は CC.Scan の結果（セッションのハッシュ）。返事待ちを先に並べる
 //  1 件は 2 行（名前と作業フォルダ、状態と経過）。待たれている中身がわかれば 3 行
 //  大きいバルーン（24 行）に選択肢と情報バーまで収まるよう、14 行を超える分は
 //  「ほかに N 件」にまとめる
@@ -1249,43 +1248,41 @@ CC.ListBody
 	_body  = ''
 	_used  = 0
 	_shown = 0
-	_i     = 0
-	_r     = IARRAY
-	_p     = IARRAY
+	_s     = IHASH()
+	_p     = IHASH()
 	_name  = ''
 	_proj  = ''
 	_row   = ''
 	_cost  = 0
 
-	foreach _argv ; _a {
-		if STRSTR(_a, 'waiting|#|', 0) == 0 {
-			_order ,= _a
+	foreach _argv ; _s {
+		if _s['status'] == 'waiting' {
+			_order ,= _s
 		}
 	}
-	foreach _argv ; _a {
-		if STRSTR(_a, 'waiting|#|', 0) != 0 {
-			_order ,= _a
+	foreach _argv ; _s {
+		if _s['status'] != 'waiting' {
+			_order ,= _s
 		}
 	}
-	for _i = 0 ; _i < ARRAYSIZE(_order) ; _i++ {
-		_r = SPLIT(_order[_i], '|#|')
-		_p = IARRAY
-		if _r[0] == 'waiting' {
-			_p = SPLIT(CC.Pending(_r[2], _r[6]), '|#|')
+	foreach _order ; _s {
+		_p = IHASH()
+		if _s['status'] == 'waiting' {
+			_p = CC.Pending(_s['cwd'], _s['sessionId'])
 		}
 		//---- 名前と作業フォルダは記録から拾った文字なので、CC.Label で危ない文字を外す
-		_proj = CC.Label('', _r[2])
-		_name = CC.Label(_r[1], _r[2])
+		_proj = CC.Label('', _s['cwd'])
+		_name = CC.Label(_s['name'], _s['cwd'])
 		_row  = '・' + SHIORI3FW.MakeShortText(_name, 22)
 		if _name != _proj {
 			_row += '（' + SHIORI3FW.MakeShortText(_proj, 18) + '）'
 		}
-		_row += '\n　' + CC.StateName(_r[0], _r[3], _p[0]) + '　' + /
-		        CC.Duration(GETSECCOUNT - TOINT(_r[4]) / 1000)
+		_row += '\n　' + CC.StateName(_s['status'], _s['waitingFor'], _p['tool']) + '　' + /
+		        CC.Duration(GETSECCOUNT - TOINT(_s['statusUpdatedAt']) / 1000)
 		_cost = 2
 		//---- 何を待たれているかがわかれば、もう 1 行
-		if STRLEN(_p[1]) > 0 {
-			_row  += '\n　「' + SHIORI3FW.MakeShortText(_p[1], 38) + '」'
+		if STRLEN(_p['detail']) > 0 {
+			_row  += '\n　「' + SHIORI3FW.MakeShortText(_p['detail'], 38) + '」'
 			_cost += 1
 		}
 		if _shown > 0 && _used + _cost > 14 {
