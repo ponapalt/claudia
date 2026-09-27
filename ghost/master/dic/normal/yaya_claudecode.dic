@@ -38,6 +38,10 @@
 //文字を消さないよう、話すことがないときは先頭に \C を付けて出す（\C は「直前に表示した
 //バルーンのテキストに追記する」）。
 //
+//状態のほかに、会話の記録（下の「返事待ちの中身」）から、何を待たれているか、
+//セッションの題名、依頼ごとの働きぶり（使ったツールと失敗の数）を読み取って、
+//お知らせと完了報告に添える。
+//
 //見張りは OnBoot で立てる。SSTP から送ったスクリプトでは filewatch を始められない
 //（notauthorized で失敗する）ので、辞書だけを読み込み直したときはメニューの
 //「見張りを立て直す」で登録し直すこと。
@@ -238,13 +242,20 @@ CC.ProjectName
 }
 
 //------------------------------------------------------------------------------
-//お知らせに添えるセッションの呼び名。メニューの一覧に出るのと同じ name（claudia-c9 など）
-//name が無ければ作業フォルダの名前にする
-//  _argv[0] name / _argv[1] cwd
+//お知らせに添えるセッションの呼び名
+//会話の記録から拾った題名（cctitle。CC.ReadTail）があればそれ、無ければ
+//メニューの一覧に出るのと同じ name（claudia-c9 など）、それも無ければ作業フォルダの名前にする
+//  _argv[0] name / _argv[1] cwd / _argv[2] sessionId（省略すると題名は使わない）
 //------------------------------------------------------------------------------
 CC.Label
 {
-	_label = _argv[0]
+	_label = ''
+	if _argc > 2 && STRLEN(_argv[2]) > 0 && GETTYPE(cctitle) == 5 {
+		_label = cctitle[_argv[2]]
+	}
+	if STRLEN(_label) == 0 {
+		_label = _argv[0]
+	}
 	if STRLEN(_label) == 0 {
 		_label = CC.ProjectName(_argv[1])
 	}
@@ -276,7 +287,8 @@ CC.WithLabel
 	if _end < 0 {
 		return _talk
 	}
-	SUBSTR(_talk, 0, _end + 1) + '【' + _argv[1] + '】\w9\n' + SUBSTR(_talk, _end + 1, STRLEN(_talk))
+	//---- 題名は長いことがあるので、1 行に収まるよう全角 22 字ほどで切る
+	SUBSTR(_talk, 0, _end + 1) + '【' + SHIORI3FW.MakeShortText(_argv[1], 44) + '】\w9\n' + SUBSTR(_talk, _end + 1, STRLEN(_talk))
 }
 
 
@@ -301,6 +313,11 @@ CC.WithLabel
 //ツールは、その行の JSON の message.content に、こういう形の要素で入っている。
 //  {"type":"tool_use","id":"...","name":"Bash","input":{"command":"...","description":"..."}}
 //  ExitPlanMode は input.plan、AskUserQuestion は input.questions[0].question に中身がある
+//
+//同じ末尾から、セッションの題名も拾う。Claude Code は会話の中身から題名を付けて、
+//  {"type":"ai-title","aiTitle":"...","sessionId":"..."}
+//という行を依頼のたびに何度も書き足している。拾った題名は cctitle（sessionId をキーにした
+//ハッシュ）に覚えておき、お知らせに添える呼び名（CC.Label）に使う。
 //******************************************************************************
 
 //------------------------------------------------------------------------------
@@ -318,20 +335,26 @@ CC.TranscriptPath
 }
 
 //------------------------------------------------------------------------------
-//会話の記録から、最後のメッセージ（user か assistant）の行を返す。無ければ空文字列
+//会話の記録の末尾 256KB を読む
+//  _argv[0] cwd / _argv[1] sessionId
+//  戻り値  ハッシュ。last 最後のメッセージ（user か assistant）の行 / title 題名
+//          わからないものは空文字列
+//題名が見つかれば cctitle にも覚える
 //------------------------------------------------------------------------------
-CC.LastMessage
+CC.ReadTail
 {
-	_path = _argv[0]
-	_size = FSIZE(_path)
-	_line = ''
-	_last = ''
+	_path  = CC.TranscriptPath(_argv[0], _argv[1])
+	_size  = FSIZE(_path)
+	_line  = ''
+	_last  = ''
+	_title = ''
+	_h     = IHASH()
 
 	if _size <= 0 {
-		return ''
+		return IHASH()
 	}
 	if !FOPEN(_path, 'r') {
-		return ''
+		return IHASH()
 	}
 	if _size > 262144 {
 		void FSEEK(_path, _size - 262144, 'start')
@@ -346,9 +369,30 @@ CC.LastMessage
 		if STRSTR(_line, '"role":"assistant"', 0) >= 0 || STRSTR(_line, '"role":"user"', 0) >= 0 {
 			_last = _line
 		}
+		elseif STRSTR(_line, '"type":"ai-title"', 0) >= 0 {
+			_h = CC.ParseJSON(_line)
+			if _h['type'] == 'ai-title' && STRLEN(_h['aiTitle']) > 0 {
+				_title = _h['aiTitle']
+			}
+		}
 	}
 	void FCLOSE(_path)
-	_last
+	CC.SetTitle(_argv[1], _title)
+	IHASH('last', _last, 'title', _title)
+}
+
+//------------------------------------------------------------------------------
+//セッションの題名を覚える。値は返さない（裸で呼ぶため）
+//  _argv[0] sessionId / _argv[1] 題名。空なら何もしない
+//------------------------------------------------------------------------------
+CC.SetTitle
+{
+	if GETTYPE(cctitle) != 5 {
+		cctitle = IHASH()
+	}
+	if STRLEN(_argv[0]) > 0 && STRLEN(_argv[1]) > 0 {
+		cctitle[_argv[0]] = _argv[1]
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -374,10 +418,12 @@ CC.Snippet
 //止まっているツールと、その中身を返す
 //  _argv[0] cwd / _argv[1] sessionId
 //  戻り値  ハッシュ。tool ツール名 / detail 中身。わからなければ空のハッシュ
+//題名（cctitle）も読み直すので、お知らせの呼び名（CC.Label）はこの後で作る
 //------------------------------------------------------------------------------
 CC.Pending
 {
-	CC.PendingIn(CC.LastMessage(CC.TranscriptPath(_argv[0], _argv[1])))
+	_tail = CC.ReadTail(_argv[0], _argv[1])
+	CC.PendingIn(_tail['last'])
 }
 
 //---- CC.Pending の続き。_argv[0] 会話の記録の最後のメッセージの行
@@ -422,6 +468,117 @@ CC.PendingIn
 
 
 //******************************************************************************
+//依頼ごとの働きぶり（完了報告に添える）
+//******************************************************************************
+//
+//依頼を受けて作業を始めた（busy になった）ときに、会話の記録の大きさを ccturnpos に
+//覚えておく。作業が終わったら、そこから後ろに書き足された行だけを読んで、
+//使ったツールを数える。
+//
+//  assistant の行の message.content の tool_use   使ったツール（名前と input）
+//  user の行の message.content の tool_result      "is_error":true なら、そのツールは失敗した
+//                                                  （コマンドのエラーのほか、許可を断ったときも）
+//
+//記録は Claude Code の内部のファイルで仕様は公開されていないので、形が変わって
+//何も数えられなくなったら、完了のトークはいつものもの（CC.TalkDone）に戻る。
+//読むのは末尾の 4MB まで（大きなファイルを読んだ依頼などで、それより多く書き足されたら、
+//前のほうは数えない）。
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//依頼を受けてからの働きぶりを数える
+//  _argv[0] cwd / _argv[1] sessionId / _argv[2] 数え始める位置（ccturnpos）
+//  戻り値  ハッシュ。数えられなければ空のハッシュ
+//    files    手を入れたファイルの数（Edit / Write / NotebookEdit。同じファイルは 1 つ）
+//    edit     手を入れた回数
+//    command  コマンドを実行した回数（Bash / PowerShell）
+//    look     調べものの回数（Read / Grep / Glob / WebFetch / WebSearch）
+//    agent    サブエージェントに任せた回数（Agent / Task）
+//    tool     ツールを使った回数（上のどれでもないものを含む全部）
+//    error    ツールが失敗した回数
+//------------------------------------------------------------------------------
+CC.TurnStats
+{
+	_path  = CC.TranscriptPath(_argv[0], _argv[1])
+	_from  = TOINT(_argv[2]) - 1
+	_size  = FSIZE(_path)
+	_line  = ''
+	_msg   = IHASH()
+	_c     = IHASH()
+	_list  = IARRAY
+	_files = IHASH()
+	_n     = IHASH()
+	_file  = ''
+
+	if _from < 0 || _size <= _from + 1 {
+		return IHASH()
+	}
+	if _size - _from > 4194304 {
+		_from = _size - 4194304
+	}
+	if !FOPEN(_path, 'r') {
+		return IHASH()
+	}
+	//---- 1 バイト手前から読み、最初の 1 行（前の行の改行か、行の残り）は捨てる
+	void FSEEK(_path, _from, 'start')
+	_line = FREAD(_path)
+	while 1 {
+		_line = FREAD(_path)
+		if _line == -1 {
+			break
+		}
+		if STRSTR(_line, '"tool_use"', 0) >= 0 && STRSTR(_line, '"role":"assistant"', 0) >= 0 {
+			_msg = CC.ParseJSON(_line)
+			_list = _msg['message']['content']
+			foreach _list ; _c {
+				if _c['type'] != 'tool_use' {
+					continue
+				}
+				_n['tool'] += 1
+				case _c['name'] {
+					when 'Edit', 'Write', 'MultiEdit', 'NotebookEdit' {
+						_n['edit'] += 1
+						_file = _c['input']['file_path']
+						if STRLEN(_file) == 0 {
+							_file = _c['input']['notebook_path']
+						}
+						if STRLEN(_file) > 0 {
+							_files[TOLOWER(REPLACE(_file, '\', '/'))] = 1
+						}
+					}
+					when 'Bash', 'PowerShell' {
+						_n['command'] += 1
+					}
+					when 'Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch' {
+						_n['look'] += 1
+					}
+					when 'Agent', 'Task' {
+						_n['agent'] += 1
+					}
+				}
+			}
+		}
+		elseif STRSTR(_line, '"is_error":true', 0) >= 0 && STRSTR(_line, '"role":"user"', 0) >= 0 {
+			_msg = CC.ParseJSON(_line)
+			_list = _msg['message']['content']
+			foreach _list ; _c {
+				if _c['type'] == 'tool_result' && _c['is_error'] == 1 {
+					_n['error'] += 1
+				}
+			}
+		}
+	}
+	void FCLOSE(_path)
+
+	if TOINT(_n['tool']) <= 0 {
+		return IHASH()
+	}
+	_n['files'] = HASH_SIZE(_files)
+	_n
+}
+
+
+//******************************************************************************
 //見張りの開始と、覚えておく値
 //******************************************************************************
 
@@ -431,7 +588,11 @@ CC.PendingIn
 //  ccstatus   その状態（busy / waiting / idle）
 //  ccbusyid   busy になったのがどのセッションか
 //  ccbusyat   busy になった時刻（Unix ミリ秒）
-//  ccbusylabel busy になったセッションの呼び名（CC.Label）
+//  ccbusyname busy になったセッションの name / ccbusycwd その cwd（呼び名を作るため）
+//  ccturnid   依頼を受けて作業を始めたセッションの sessionId
+//  ccturnpos  そのときの会話の記録の大きさ（バイト）。依頼ごとの働きぶり（CC.TurnStats）を
+//             ここから数える。0 なら、いつ始めたか分からない（起動時にすでに動いていた）
+//  cctitle    セッションの題名（sessionId をキーにしたハッシュ。CC.ReadTail）
 //  cctalkat   最後に Claude Code の話をした時刻（Unix 秒）
 //  ccbusytold 長考の話をもうしたか
 //  ccwatched  今ファイルの見張りを立てているファイル名（ハッシュのキー）
@@ -448,7 +609,11 @@ CC.Reset
 	ccstatus   = ''
 	ccbusyid   = ''
 	ccbusyat   = 0
-	ccbusylabel = ''
+	ccbusyname = ''
+	ccbusycwd  = ''
+	ccturnid   = ''
+	ccturnpos  = 0
+	cctitle    = IHASH()
 	cctalkat   = 0
 	ccbusytold = 0
 	ccwatched  = IHASH()
@@ -456,6 +621,8 @@ CC.Reset
 	ccaddedfile = ''
 	ccremindat = 0
 	ccremindn  = 0
+	//---- 前の版で使っていた変数（呼び名は ccbusyname / ccbusycwd から作り直すようにした）
+	void ERASEVAR('ccbusylabel')
 }
 
 //------------------------------------------------------------------------------
@@ -470,7 +637,8 @@ CC.Prime
 		ccstatus  = _s['status']
 		ccbusyid  = _s['sessionId']
 		ccbusyat  = TOINT(_s['statusUpdatedAt'])
-		ccbusylabel = CC.Label(_s['name'], _s['cwd'])
+		ccbusyname = _s['name']
+		ccbusycwd  = _s['cwd']
 	}
 }
 
@@ -734,6 +902,7 @@ CC.NoticeFile
 	_before  = ''
 	_busyfor = 0
 	_pending = IHASH()
+	_stats   = IHASH()
 	_talk    = ''
 	_sound   = ''
 	_label   = ''
@@ -760,7 +929,6 @@ CC.NoticeFile
 	_waiting = _s['waitingFor']
 	_at      = TOINT(_s['statusUpdatedAt'])
 	_id      = _s['sessionId']
-	_label   = CC.Label(_s['name'], _s['cwd'])
 
 	//---- 続けて作業している時間を数える（ccstatus がまだ前の状態のうちに呼ぶ）
 	CC.MarkWork
@@ -797,7 +965,13 @@ CC.NoticeFile
 		ccbusyid   = _id
 		ccbusyat   = _at
 		ccbusytold = 0
-		ccbusylabel = _label
+		ccbusyname = _s['name']
+		ccbusycwd  = _s['cwd']
+		//---- 新しい依頼を受けた（返事待ちからの再開ではない）。ここから働きぶりを数える
+		if _before != 'waiting' {
+			ccturnid  = _id
+			ccturnpos = FSIZE(CC.TranscriptPath(_s['cwd'], _id))
+		}
 	}
 
 	ccsession = _id
@@ -828,7 +1002,12 @@ CC.NoticeFile
 			_busyfor = (_at - ccbusyat) / 1000
 			if _before == 'busy' && ccbusyid == _id && ccbusyat > 0 && _busyfor >= 15 {
 				if _busyfor >= 90 && CC.TalkOK(120) {
-					_talk = CC.TalkDoneFor(_busyfor)
+					//---- 依頼を受けてからの働きぶりを数えて、完了報告に添える。題名もここで読み直す
+					if ccturnid == _id {
+						_stats = CC.TurnStats(_s['cwd'], _id, ccturnpos)
+					}
+					void CC.ReadTail(_s['cwd'], _id)
+					_talk = CC.TalkDoneFor(_busyfor, _stats)
 				}
 				if ccdoneoff != 1 {
 					_sound = CC.DONE
@@ -838,8 +1017,10 @@ CC.NoticeFile
 	}
 
 	//---- 話したときだけ、話した時刻を覚える（音だけのときは数えない）
+	//---- 呼び名は、題名を読み直した（CC.Pending、CC.ReadTail）後で作る
 	if STRLEN(_talk) > 0 {
 		cctalkat = GETSECCOUNT
+		_label   = CC.Label(_s['name'], _s['cwd'], _id)
 		return _sound + CC.WithLabel(_talk, _label)
 	}
 	if STRLEN(_sound) > 0 {
@@ -912,6 +1093,7 @@ CC.Remind
 	_wait    = IARRAY
 	_s       = IHASH()
 	_pending = IHASH()
+	_label   = ''
 	_talk    = ''
 
 	if GETTYPE(ccremindat) == 0 || ccremindat <= 0 || ccremindoff == 1 {
@@ -943,7 +1125,8 @@ CC.Remind
 	}
 	_s       = _wait[0]
 	_pending = CC.Pending(_s['cwd'], _s['sessionId'])
-	_talk    = CC.WithLabel(CC.TalkRemind(ccremindn, _pending['detail'], CC.IsPermission(_s['waitingFor'])), CC.Label(_s['name'], _s['cwd']))
+	_label   = CC.Label(_s['name'], _s['cwd'], _s['sessionId'])
+	_talk    = CC.WithLabel(CC.TalkRemind(ccremindn, _pending['detail'], CC.IsPermission(_s['waitingFor'])), _label)
 	cctalkat = _now
 	CC.WaitSound(_s['waitingFor'], 1) + _talk
 }
@@ -988,19 +1171,21 @@ CC.BootCheck
 	if ARRAYSIZE(_wait) == 0 {
 		return ''
 	}
+	//---- 何を待たれているかは最初の 1 件だけ。題名は全部読み直してから呼び名を並べる
+	_s       = _wait[0]
+	_pending = CC.Pending(_s['cwd'], _s['sessionId'])
 	foreach _wait ; _i, _s {
 		if _i > 0 {
+			void CC.ReadTail(_s['cwd'], _s['sessionId'])
 			_labels += '、'
 		}
-		_labels += CC.Label(_s['name'], _s['cwd'])
+		_labels += CC.Label(_s['name'], _s['cwd'], _s['sessionId'])
 	}
 
 	ccremindat = _now
 	ccremindn  = 0
 	cctalkat   = _now
-	_s       = _wait[0]
-	_pending = CC.Pending(_s['cwd'], _s['sessionId'])
-	CC.WaitSound(_s['waitingFor'], 1) + CC.WithLabel(CC.TalkBootWaiting(_pending['detail']), _labels)
+	CC.WaitSound(_wait[0]['waitingFor'], 1) + CC.WithLabel(CC.TalkBootWaiting(_pending['detail']), _labels)
 }
 
 //------------------------------------------------------------------------------
@@ -1018,7 +1203,9 @@ CC.LongBusy
 	if _busyfor >= 600 && CC.TalkOK(120) {
 		ccbusytold = 1
 		cctalkat   = GETSECCOUNT
-		_talk      = CC.WithLabel(CC.TalkLong, ccbusylabel)
+		//---- 作業の間に題名が付いたり変わったりしているので、読み直してから呼び名を作る
+		void CC.ReadTail(ccbusycwd, ccbusyid)
+		_talk      = CC.WithLabel(CC.TalkLong, CC.Label(ccbusyname, ccbusycwd, ccbusyid))
 	}
 	_talk
 }
@@ -1165,17 +1352,121 @@ CC.TalkNewFor
 	_talk
 }
 
-//---- 長考が片付いたときのトーク。_argv[0] かかった秒数
+//---- 長考が片付いたときのトーク
+//  _argv[0] かかった秒数 / _argv[1] 働きぶり（CC.TurnStats）。数えられなければ空のハッシュ
+//  働きぶりが数えられれば、4 回に 3 回はそれを読み上げる（毎回だと単調になるため）
 CC.TalkDoneFor
 {
-	_talk = ''
+	_stats = _argv[1]
+	_talk  = ''
+
 	if CC.IsLate {
 		_talk = CC.TalkDoneLate
+	}
+	elseif GETTYPE(_stats) == 5 && TOINT(_stats['tool']) > 0 && RAND(4) > 0 {
+		_talk = CC.TalkDoneStats(_argv[0], _stats)
 	}
 	else {
 		_talk = CC.TalkDone(_argv[0])
 	}
 	_talk
+}
+
+//------------------------------------------------------------------------------
+//働きぶりを 1〜3 行の文にする。最後の行に改行は付けない
+//  例: 「手直ししたファイルが3件、\w9\nコマンドが12回、調べものが8回。」
+//  _argv[0] 働きぶり（CC.TurnStats）
+//------------------------------------------------------------------------------
+CC.StatsText
+{
+	_files   = TOINT(_argv[0]['files'])
+	_command = TOINT(_argv[0]['command'])
+	_look    = TOINT(_argv[0]['look'])
+	_agent   = TOINT(_argv[0]['agent'])
+	_tool    = TOINT(_argv[0]['tool'])
+	_parts   = IARRAY
+	_text    = ''
+
+	if _files > 0 {
+		_parts ,= "手直ししたファイルが%(_files)件"
+	}
+	if _command > 0 {
+		_parts ,= "コマンドが%(_command)回"
+	}
+	if _look > 0 {
+		_parts ,= "調べものが%(_look)回"
+	}
+	if _agent > 0 {
+		_parts ,= "手の者の出番が%(_agent)回"
+	}
+	//---- どれにも当てはまらないツールだけだった
+	if ARRAYSIZE(_parts) == 0 {
+		_parts ,= "道具の出番が%(_tool)回"
+	}
+	//---- 1 行目に 1 つ、2 行目以降に 2 つずつ
+	foreach _parts ; _i, _part {
+		if _i == 1 || _i == 3 {
+			_text += '、\w9\n'
+		}
+		elseif _i > 0 {
+			_text += '、'
+		}
+		_text += _part
+	}
+	_text + '。'
+}
+
+//---- 働きぶりを添えて、長考が片付いたことを知らせる
+//  _argv[0] かかった秒数 / _argv[1] 働きぶり（CC.TurnStats）
+//  高笑いは、一度もしくじらずに片付いたときだけ
+CC.TalkDoneStats
+{
+	_min   = TOINT(_argv[0] / 60)
+	_what  = CC.StatsText(_argv[1])
+	_error = TOINT(_argv[1]['error'])
+	_pick  = IARRAY
+	_head  = ''
+	_tail  = ''
+
+	if _error == 0 {
+		_pick = ( /
+			"\u\s[10]\0\s[5]おーっほっほっほ！\w9\n%(_min)分で片付きましたわ。\w9\n%(_what)", /
+			"\u\s[10]\0\s[26]%(_min)分の大仕事でしたわね。\w9\n%(_what)", /
+			"\u\s[10]\0\s[25]片付きましたわよ。\w9\n%(_what)" /
+		)
+		_head = _pick[RAND(3)]
+		_pick = ( /
+			'\w8\1しくじりは一度もございません。\e', /
+			'\w8\1一度もつまずかずに、でございます。\w8\0\s[26]\n\n当然ですわ。\e', /
+			'\w8\1お見事でございます。\w9\n中身のご確認はお忘れなく。\e' /
+		)
+		_tail = _pick[RAND(3)]
+	}
+	elseif _error <= 2 {
+		_pick = ( /
+			"\u\s[10]\0\s[26]%(_min)分の大仕事でしたわね。\w9\n%(_what)", /
+			"\u\s[10]\0\s[0]終わりましたわよ。\w9\n%(_what)" /
+		)
+		_head = _pick[RAND(2)]
+		_pick = ( /
+			"\w8\1つまずきは%(_error)回だけでございます。\e", /
+			"\w8\1途中で%(_error)回つまずきましたが、\w9\n立て直しております。\e" /
+		)
+		_tail = _pick[RAND(2)]
+	}
+	else {
+		_pick = ( /
+			"\u\s[10]\0\s[0]ようやく終わりましたわ。\w9\n%(_what)", /
+			"\u\s[10]\0\s[4]%(_min)分もかかりましたわね。\w9\n%(_what)" /
+		)
+		_head = _pick[RAND(2)]
+		_pick = ( /
+			"\w8\1ただ、%(_error)回つまずいております。\w9\n中身はよくお確かめくださいませ。\e", /
+			"\w8\1%(_error)回ほど失敗を重ねての\w9\n仕上がりでございます。\w8\0\s[7]\n\n‥\w5‥\w5あなたの目で確かめなさいな。\e" /
+		)
+		_tail = _pick[RAND(2)]
+	}
+	_head + _tail
 }
 
 
@@ -1265,16 +1556,20 @@ CC.ListBody
 		}
 	}
 	foreach _order ; _s {
+		//---- 返事待ちなら何を待たれているかも。どちらも題名を読み直す
 		_p = IHASH()
 		if _s['status'] == 'waiting' {
 			_p = CC.Pending(_s['cwd'], _s['sessionId'])
 		}
+		else {
+			void CC.ReadTail(_s['cwd'], _s['sessionId'])
+		}
 		//---- 名前と作業フォルダは記録から拾った文字なので、CC.Label で危ない文字を外す
 		_proj = CC.Label('', _s['cwd'])
-		_name = CC.Label(_s['name'], _s['cwd'])
-		_row  = '・' + SHIORI3FW.MakeShortText(_name, 22)
+		_name = CC.Label(_s['name'], _s['cwd'], _s['sessionId'])
+		_row  = '・' + SHIORI3FW.MakeShortText(_name, 30)
 		if _name != _proj {
-			_row += '（' + SHIORI3FW.MakeShortText(_proj, 18) + '）'
+			_row += '（' + SHIORI3FW.MakeShortText(_proj, 14) + '）'
 		}
 		_row += '\n　' + CC.StateName(_s['status'], _s['waitingFor'], _p['tool']) + '　' + /
 		        CC.Duration(GETSECCOUNT - TOINT(_s['statusUpdatedAt']) / 1000)
