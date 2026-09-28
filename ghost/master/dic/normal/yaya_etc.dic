@@ -727,3 +727,193 @@ OnMusicPlay
 	"\u\s[10]\0\s[0]「%(_title)」‥\w5‥\w5\w9\n\s[26]わたくしの好みを当ててごらんなさい。\w8\1お嬢様は行進曲がお好きです。\w8\0\s[1]\n\n余計なことを。\e"
 	"\u\s[10]\0\s[6]%(_label)‥\w5‥\w5\w9\n‥\w5‥\w5悪くありませんわね。\w8\1お気に召したようでございます。\e"
 }
+
+//------------------------------------------------------------------------------
+//スリープからの復帰と、画面ロックの解除
+//  OnSysSuspend   スリープ・休止に入る（NOTIFY。時刻を覚えるだけ）
+//  OnSysResume    復帰。reference[0] は normal / auto（システムのスケジュールによる自動起床）
+//  OnSessionLock  画面ロック。ユーザーには見えないので、時刻を覚えるだけ（SSP 2.5.50 以降）
+//  OnSessionUnlock  ロック解除。reference の記載は無い（SSP 2.5.50 以降）
+//
+//離れていた長さ（分）と時間帯でトークを変える。短い離席では黙る。
+//スリープから戻ってロック画面が出る環境では、OnSysResume では話さず、
+//OnSessionUnlock で「スリープ明け」として一度だけ話す。
+//状態は RegisterTempVar の一時変数（yaya_variable.cfg には残らない）。
+//------------------------------------------------------------------------------
+
+//---- 状態の初期化（値は返さない）
+Away.Init
+{
+	if GETTYPE(awaysuspendat) != 1 {
+		awaysuspendat = 0
+	}
+	if GETTYPE(awaylockat) != 1 {
+		awaylockat = 0
+	}
+	if GETTYPE(awayresumedinlock) != 1 {
+		awayresumedinlock = 0
+	}
+	SHIORI3FW.RegisterTempVar('awaysuspendat', 'awaylockat', 'awayresumedinlock')
+}
+
+OnSysSuspend
+{
+	Away.Init
+	awaysuspendat = GETSECCOUNT
+}
+
+OnSessionLock
+{
+	Away.Init
+	awaylockat        = GETSECCOUNT
+	awayresumedinlock = 0
+}
+
+OnSysResume
+{
+	Away.Init
+
+	//---- 自動起床（更新などで PC が勝手に起きた）ときは、ユーザーが不在なので黙る
+	if reference[0] == 'auto' {
+		return ''
+	}
+	//---- ロック画面の裏で復帰したときは、ロック解除のときにまとめて迎える
+	if awaylockat > 0 {
+		awayresumedinlock = 1
+		return ''
+	}
+
+	_sec = 0
+	if awaysuspendat > 0 {
+		_sec = GETSECCOUNT - awaysuspendat
+	}
+	awaysuspendat = 0
+
+	Away.Talk('sleep', _sec)
+}
+
+OnSessionUnlock
+{
+	Away.Init
+
+	_kind = 'lock'
+	_sec  = 0
+	if awayresumedinlock && awaysuspendat > 0 {
+		_kind = 'sleep'
+		_sec  = GETSECCOUNT - awaysuspendat
+	}
+	elseif awaylockat > 0 {
+		_sec = GETSECCOUNT - awaylockat
+	}
+	awaylockat        = 0
+	awayresumedinlock = 0
+	awaysuspendat     = 0
+
+	Away.Talk(_kind, _sec)
+}
+
+//---- 引数は「sleep か lock」と「離れていた秒数」。短すぎるときと、時計が戻ったときは空文字列
+Away.Talk
+{
+	_silent = 2
+	if _argv[0] == 'sleep' {
+		_silent = 5
+	}
+	_min = _argv[1] / 60
+	if _min < _silent {
+		return ''
+	}
+
+	_class = 'short'
+	if _min >= 30 {
+		_class = 'mid'
+	}
+	if _min >= 180 {
+		_class = 'long'
+	}
+
+	//---- 長いスリープは、朝かどうかで迎え方を変える
+	_key = _argv[0] + '.' + _class
+	if _key == 'sleep.long' && GetTimeSlot != '朝' {
+		_key = 'sleep.long.other'
+	}
+
+	_talk = ''
+	case _key {
+		when 'sleep.short'      { _talk = Away.SleepShort(_min) }
+		when 'sleep.mid'        { _talk = Away.SleepMid(_min) }
+		when 'sleep.long'       { _talk = Away.SleepLongMorning(_min) }
+		when 'sleep.long.other' { _talk = Away.SleepLongOther(_min) }
+		when 'lock.short'       { _talk = Away.LockShort(_min) }
+		when 'lock.mid'         { _talk = Away.LockMid(_min) }
+		when 'lock.long'        { _talk = Away.LockLong(_min) }
+	}
+	_talk
+}
+
+//---- スリープ明け（5〜30 分）
+Away.SleepShort : nonoverlap
+{
+	_m = _argv[0]
+
+	'\u\s[10]\0\s[0]あら、もうお戻りですの。\w9\nほんのひと休みでしたわね。\w8\1お茶が冷めきる前でございました。\e'
+	"\u\s[10]\0\s[26]目が覚めましたのね、%(username)。\w9\n%(_m)分ほどの小休止でしたわ。\w8\1この子も、ひと息つけたようでございます。\w8\0\s[25]\n\n休むのも仕事のうちですわ。\e"
+}
+
+//---- スリープ明け（30 分〜3 時間）
+Away.SleepMid : nonoverlap
+{
+	_m = _argv[0]
+
+	"\u\s[10]\0\s[26]おかえりなさい、%(username)。\w9\nその間に、わたくしは\w9\n%(sweets)を味わっておりましたの。\w8\1お嬢様、私の分は‥\w5‥\w5\w8\0\s[7]\n\n‥\w5‥\w5ありませんわ。\e"
+	'\u\s[10]\0\s[0]この子、ぐっすりでしたわ。\w8\1しばらく、微動だにいたしませんでした。\w8\0\s[26]\n\n静かで結構でしたけれど、\w9\n少し退屈でしたわね。\e'
+	"\u\s[10]\0\s[25]お戻りですのね、%(username)。\w8\1お帰りをお待ちする間、\w9\n紅茶を何度も淹れ直しておりました。\w8\0\s[1]\n\n%(_m)分も経てば冷めますもの。\w9\n淹れ直したのは\w9\nアンソニーですわよ。\e"
+}
+
+//---- スリープ明け（3 時間以上・朝）
+Away.SleepLongMorning : nonoverlap
+{
+	"\u\s[10]\0\s[25]おはようございます、%(username)。\w9\nよくお休みになれまして？\w8\1朝のお茶をお持ちいたしました。\w8\0\s[26]\n\n今日も一日、\w9\nわたくしが付いていて差し上げますわ。\e"
+	"\u\s[10]\0\s[6]朝ですのね‥\w5‥\w5\w9\nこの子が起きると、屋敷も動き出しますわ。\w8\1お嬢様、まずは朝食を。\w8\0\s[0]\n\nそうね。\w9\n%(username)も、ちゃんと召し上がって？\e"
+	'\u\s[10]\0\s[26]ずいぶんごゆっくりでしたわね。\w9\nもう日が高いのではなくて？\w8\1お嬢様、まだ朝でございます。\w8\0\s[0]\n\n朝のうちなら、\w9\n許して差し上げますわ。\e'
+}
+
+//---- スリープ明け（3 時間以上・朝以外）
+Away.SleepLongOther : nonoverlap
+{
+	_h = _argv[0] / 60
+
+	'\u\s[10]\0\s[2]あら、ずいぶん長い眠りでしたわね。\w9\n予定に穴は開いておりませんこと？\w8\1予定は私が確認いたします。\e'
+	"\u\s[10]\0\s[4]すっかり待ちくたびれましたわ。\w9\n何時間眠っていたのかしら。\w8\1私は数えておりました。\w9\nおよそ%(_h)時間でございます。\w8\0\s[7]\n\n聞きたくありませんでしたわ！\e"
+	"\u\s[10]\0\s[0]おかえりなさい、%(username)。\w9\nこの子が眠っている間に、\w9\n屋敷の帳簿を三周しましたわ。\w8\1私が、でございます。\w8\0\s[26]\n\n監督したのは\w9\nわたくしですもの。\e"
+}
+
+//---- ロック解除（2〜30 分）
+Away.LockShort : nonoverlap
+{
+	_m = _argv[0]
+
+	"\u\s[10]\0\s[0]お戻りですのね、%(username)。\w8\1お席を外されている間、\w9\nお嬢様は落ち着かないご様子で。\w8\0\s[7]\n\n落ち着いておりましたわ！\e"
+	'\u\s[10]\0\s[26]おかえりなさい。\w9\n鍵をかけていくとは、\w9\n心得ていらっしゃいますのね。\w8\1画面をお守りするのも、\w9\n執事の務めでございます。\e'
+	"\u\s[10]\0\s[25]%(_m)分でお戻りとは、\w9\nお早いですわね。\w8\1ちょうど、お茶が\w9\n飲み頃でございます。\e"
+}
+
+//---- ロック解除（30 分〜3 時間）
+Away.LockMid : nonoverlap
+{
+	_m = _argv[0]
+
+	"\u\s[10]\0\s[6]おかえりなさい。\w9\nずいぶん長い離席でしたわね。\w8\1およそ%(_m)分でございます。\w8\0\s[26]\n\n数えていましたの？\w8\1お嬢様が、\w9\n数えるようお命じに。\w8\0\s[7]\n\nアンソニー！\e"
+	"\u\s[10]\0\s[0]お食事でしたの？\w9\n栄養は大切ですわ。\w8\1%(food)はおいしゅうございましたか。\w8\0\s[25]\n\n%(username)の顔色を見れば\w9\n分かりますわ。\e"
+	'\u\s[10]\0\s[26]あなたの席は、\w9\nわたくしがずっと守っておりましたわ。\w8\1画面の前で、\w9\n仁王立ちでございました。\w8\0\s[25]\n\n不届き者は\w9\n近づけませんでしたのよ。\e'
+}
+
+//---- ロック解除（3 時間以上）
+Away.LockLong : nonoverlap
+{
+	_h = _argv[0] / 60
+
+	"\u\s[10]\0\s[4]‥\w5‥\w5ようやくお戻りですのね。\w9\n%(_h)時間ですわよ。\w8\1お嬢様は、その間ずっと\w9\n窓辺においででした。\w8\0\s[7]\n\n景色を眺めていただけですわ！\e"
+	"\u\s[10]\0\s[1]おかえりなさい、%(username)。\w9\nべ、別に寂しくはありませんでしたわ。\w8\1その%(_h)時間、一度も\w9\n時計から目を離されませんでしたが。\w8\0\s[7]\n\nアンソニー！\e"
+	"\u\s[10]\0\s[0]おかえりなさいませ。\w9\nずいぶん遠くまで\w9\n行ってらしたのね。\w8\1およそ%(_h)時間でございます。\w8\0\s[26]\n\nその間に、屋敷の仕事は\w9\nすべて片付けておきましたわ。\w8\1\n\n私が、でございます。\w8\0\s[7]\n\n‥\w5‥\w5細かいことは言わないの。\e"
+}
