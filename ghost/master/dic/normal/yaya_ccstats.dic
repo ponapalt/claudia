@@ -820,7 +820,8 @@ CCS.Minute
 		CCS.QuietMilestones
 	}
 	CCS.RollDay
-	if ccshready == 1 && CC.TalkOK(120) {
+	//---- 執務で集中している間は、お祝いを次の休憩まで取っておく（yaya_teatimer.dic）
+	if ccshready == 1 && CC.TalkOK(120) && !TM.Focusing {
 		_talk = CCS.Milestone
 		if STRLEN(_talk) > 0 {
 			cctalkat = GETSECCOUNT

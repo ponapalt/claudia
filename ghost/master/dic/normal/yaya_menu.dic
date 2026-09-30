@@ -53,10 +53,18 @@ MENU.Grid
 }
 
 //---- 二段組みの 1 項目。_argv[0] は「表示する文字列|関数名」、_argv[1] はそろえる幅（半角）
+//  「表示する文字列|関数名|引数|‥‥」と書くと、引数を \q の 3 番目以降に付ける
+//  （OnChoiceSelectEx の reference[2] 以降に入る。yaya_teatimer.dic）
 MENU.Cell
 {
-	_p = SPLIT(_argv[0], '|')
-	'\![*]\q[' + AYATEMPLATE.EscapeText(SHIORI3FW.MakeJustText(_p[0], _argv[1])) + ',' + AYATEMPLATE.EscapeText(_p[1]) + ']'
+	_p  = SPLIT(_argv[0], '|')
+	_id = AYATEMPLATE.EscapeText(_p[1])
+	_i  = 0
+
+	for _i = 2 ; _i < ARRAYSIZE(_p) ; _i++ {
+		_id += ',' + AYATEMPLATE.EscapeText(_p[_i])
+	}
+	'\![*]\q[' + AYATEMPLATE.EscapeText(SHIORI3FW.MakeJustText(_p[0], _argv[1])) + ',' + _id + ']'
 }
 
 //---- 情報バー。区切りの菱の次の行に、注記の色で 1 行（全角 23 字まで）
@@ -151,6 +159,7 @@ OPENMENU.Body
 	_items ,= '話しかける|Menu_COMMUNICATEOPEN'
 	_items ,= 'ゴーストと話す|Menu_GHOSTCOMSTART'
 	_items ,= 'これまでの功績|Menu_CCSTATS'
+	_items ,= 'お茶とタイマー|Menu_TIMER'
 	//---- Claude Code が動いているときだけ見せる
 	if ARRAYSIZE(_list) > 0 {
 		_items ,= 'Claude Code は？|Menu_CLAUDECODE'
@@ -312,6 +321,10 @@ OnUserInputCancel
 	if reference[0] == 'OnInputFirstUserName' {
 		//---- 初回起動で名前を聞いたのに閉じられた（yaya_bootend.dic）
 		return FirstBoot.NoName
+	}
+	if reference[0] == 'OnInputTimerMinutes' {
+		//---- タイマーの分数を聞いたのに閉じられた（yaya_teatimer.dic）
+		return '\u\s[10]\0\s[0]\1では、砂時計はしまっておきます。' + TM.AfterItems
 	}
 	if reference[0] != 'OnInputUserName' {
 		return ''

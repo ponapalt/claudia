@@ -47,6 +47,11 @@ OnAITalk
 //------------------------------------------------------------------------------
 OnAiTalk
 {
+	//---- 執務で集中している間は、自動のランダムトークを出さない（yaya_teatimer.dic）
+	//---- 自動のときは OnSecondChange から来る。メニューの「何か話して」はそのまま話す
+	if SHIORI3FW.Eventid == 'OnSecondChange' && TM.Focusing {
+		return ''
+	}
 	//---- 通常のランダムトーク、ただしチェイン中はチェイントーク
 	if SHIORI3FW.IsChain {
 		AYATEMPLATE.LastTalk = ChainTalk

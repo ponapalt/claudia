@@ -41,6 +41,7 @@
 | `yaya_word.dic` | トーク中に埋め込む単語（`%(tea)` 紅茶、`%(sweets)` お菓子、`%(food)` 料理） |
 | `yaya_claudecode.dic` | Claude Code のセッションの見張り（`CC.*`）。`%USERPROFILE%\.claude\sessions\*.json` を `\![execute,filewatch]` で見張り（`OnClaudeCodeDir` / `OnClaudeCodeFile`）、返事待ちのベルと 5 分ごとのリマインダ、長考と完了、新しいセッション、会話の記録（`%USERPROFILE%\.claude\projects\...\<sessionId>.jsonl`）から拾ったセッションの題名（`ai-title`）での呼びかけ、長考が片付いたときの働きぶりの報告（`CC.TurnStats`。依頼を受けてから使ったツールと失敗の数）、休憩のすすめ（続けて 2 時間ごと）、通知領域のアイコンの切り替えを行う。見張りは `OnBoot` の `CC.Start` で立てる。詳しい仕組みは先頭のコメントにある |
 | `yaya_ccstats.dic` | Claude Code の功績録（`CCS.*`）。依頼の履歴 `%USERPROFILE%\.claude\history.jsonl`（時刻と作業フォルダだけを読み、本文は使わない）と、`yaya_claudecode.dic` の見張りから `CCS.Count` で数えた回数を合わせて、メニュー「これまでの功績は？」の功績録と称号、本日の業務報告（午前 4 時で区切る）、終了時のひとこと（`OnClose`）、節目のお祝い（記念日、新しい称号、依頼の千件ごと。`CC.Minute` から）を出す。番外の称号（`CCS.OddTitles`。時刻や日付、領地の名前、なでた・つついた回数など）は功績録の最後の頁に並べる。Claude Code が無い PC（`CCS.NoClaude`）では、功績録は頁の代わりに `CCS.PageNoClaude`（番外の称号があればそれだけ）を出し、業務報告の選択肢は出さない。履歴は読み終えた位置を覚えて増えた分だけ読む。詳しい仕組みは先頭のコメントにある |
+| `yaya_teatimer.dic` | お茶とタイマー（`TM.*`）。メインメニュー「お茶とタイマー」（`Menu_TIMER`）から、紅茶の砂時計と時間を指定した砂時計（同時に 6 本まで）、執務（ポモドーロ。集中・短い休憩・長い休憩の分数と本数は「執務の時間割」で変える）を立てる。締め切りは `OnSecondChange` の `TM.Check` で確かめ、話せるときに知らせる。集中している間は、自動のランダムトーク（`OnAiTalk`）、時報、功績録の節目のお祝いを出さず、執務の間は Claude Code の休憩のすすめも出さない。選択肢の引数は `OnChoiceSelectEx` で受ける（ID が `TM.` で始まるもの）。知らせの音は `ghost/master/tm_*.wav`（`cc_*.wav` と同じく Python で合成した WAV）。詳しい仕組みは先頭のコメントにある |
 | `yaya_homeurl.dic` | ネットワーク更新の URL（`On_homeurl`） |
 | `yaya_tmpl_util.dic` | テンプレートの内部処理（`AYATEMPLATE.*`）。必要なとき以外は触らない |
 

@@ -1217,7 +1217,8 @@ CC.LongBusy
 CC.Minute
 {
 	_talk = CC.LongBusy
-	if STRLEN(_talk) == 0 {
+	//---- 執務（ポモドーロ）の間は、休憩の区切りがあるので勧めない（yaya_teatimer.dic）
+	if STRLEN(_talk) == 0 && !TM.PomoOn {
 		_talk = CC.LongWork
 	}
 	if STRLEN(_talk) == 0 {
@@ -1269,6 +1270,17 @@ CC.MarkWork
 		CCS.WorkSpan(_now - ccworkfrom)
 	}
 	ccworkat = _now
+}
+
+//------------------------------------------------------------------------------
+//執務（ポモドーロ、yaya_teatimer.dic）を終えたときに呼ぶ。執務の間は休憩をとれていたので、
+//そのあいだに過ぎた 2 時間の区切りでは勧めず、次の区切りから勧める。値は返さない（裸で呼ぶため）
+//------------------------------------------------------------------------------
+CC.SkipBreak
+{
+	if GETTYPE(ccworkfrom) != 0 && ccworkfrom > 0 && GETSECCOUNT > ccworkfrom {
+		ccbreakn = TOINT((GETSECCOUNT - ccworkfrom) / 7200)
+	}
 }
 
 //------------------------------------------------------------------------------

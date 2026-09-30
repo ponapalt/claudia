@@ -274,8 +274,9 @@ OnKeyPress
 OnMinuteChange
 {
 	//---- 時間の分を見て 0 であれば時報。それ以外のときは重なり処理を行う
+	//---- 執務で集中している間は、時報を出さない（yaya_teatimer.dic）
 
-	if minute == 0{
+	if minute == 0 && !TM.Focusing{
 		//---- 分 = 0 だったので時報
 		"\u\s[10]\0\s[0]%(hour)時ですわ。"
 		--
@@ -372,7 +373,8 @@ OnMinuteChange
 //------------------------------------------------------------------------------
 //OnSecondChangeイベント
 //1 秒毎に実行される。ここではあまり重い処理を行わないこと
-//見切れ処理と、Claude Code の返事待ちのリマインダ（yaya_claudecode.dic）を行う
+//見切れ処理と、砂時計と執務の区切り（yaya_teatimer.dic）と、
+//Claude Code の返事待ちのリマインダ（yaya_claudecode.dic）を行う
 //---------------------------------------------------------------------------
 OnSecondChange
 {
@@ -383,6 +385,10 @@ OnSecondChange
 		_talk = EndMikireTalk
 	}
 	AYATEMPLATE.mikireflag = reference[1]
+	//---- 砂時計と執務の区切り（yaya_teatimer.dic）。話せないときは、話せるようになるまで待つ
+	if STRLEN(_talk) == 0 && TOINT(reference[3]) == 1 {
+		_talk = TM.Check(TOINT(reference[4]))
+	}
 	if STRLEN(_talk) == 0 {
 		_talk = CC.Remind
 	}

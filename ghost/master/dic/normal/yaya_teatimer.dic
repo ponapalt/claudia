@@ -1,0 +1,800 @@
+//******************************************************************************
+// 悪役令嬢クローディア
+// お茶とタイマー辞書（紅茶の砂時計と、執務の時間割＝ポモドーロ）
+//******************************************************************************
+//
+//メインメニューの「お茶とタイマー」から使う。
+//
+//砂時計（紅茶と、時間を指定したタイマー）はいくつでも同時に立てられる（6 本まで）。
+//執務（ポモドーロ）は 1 つだけで、砂時計と同時に動かせる。
+//集中 → 短い休憩 → 集中 → ‥‥ と続け、集中が tmcycle 本片付くごとに長い休憩にする。
+//休憩が終わったら、次の集中は自動で始まる。
+//
+//締め切りは OnSecondChange（yaya_aitalk.dic）から TM.Check で確かめる。
+//話せないとき（トーク中、メニューを開いているとき）は知らせずに待ち、話せるように
+//なってから知らせる。
+//
+//集中している間は、自動のランダムトーク（OnAiTalk、yaya_tmpl_util.dic）、時報
+//（OnMinuteChange）、功績録の節目のお祝い（CCS.Minute）を出さない。執務の間は、
+//Claude Code の休憩のすすめ（CC.LongWork）も出さない。
+//
+//  tmtimers   砂時計の一覧。ハッシュの配列で、1 本ごとに
+//             id（番号）/ kind（tea: 紅茶、timer: 時間を指定）/ name（茶葉の名前）/
+//             min（分）/ end（落ちきる時刻。Unix 秒）
+//  tmnextid   次に立てる砂時計の番号
+//  tmpomo     執務の様子。ハッシュで、phase（focus: 集中、short: 短い休憩、
+//             long: 長い休憩）/ end（今の区切りが終わる時刻）/ done（片付いた集中の本数）。
+//             執務をしていないときは空のハッシュ
+//  tmfocus    集中の分数（初めは空。空なら 25）
+//  tmshort    短い休憩の分数（空なら 5）
+//  tmlong     長い休憩の分数（空なら 15）
+//  tmcycle    長い休憩までの集中の本数（空なら 4）
+//  tmsoundoff 1 なら、知らせるときに音を鳴らさない
+//  tmlastmin  最後に指定した分数（入力欄に入れておく）
+//******************************************************************************
+
+
+//******************************************************************************
+//設定の値
+//******************************************************************************
+
+TM.Focus
+{
+	TM.Setting(tmfocus, 25)
+}
+
+TM.Short
+{
+	TM.Setting(tmshort, 5)
+}
+
+TM.Long
+{
+	TM.Setting(tmlong, 15)
+}
+
+TM.Cycle
+{
+	TM.Setting(tmcycle, 4)
+}
+
+//---- _argv[0] 変数の値 / _argv[1] 空のときの値
+TM.Setting
+{
+	_v = TOINT(_argv[0])
+	if _v <= 0 {
+		_v = _argv[1]
+	}
+	_v
+}
+
+//---- 設定の選び方。「執務の時間割」で選ぶたびに、次の値へ進む
+TM.Steps
+{
+	case _argv[0] {
+		when 'focus' {
+			(15, 20, 25, 30, 45, 50, 60)
+		}
+		when 'short' {
+			(3, 5, 10)
+		}
+		when 'long' {
+			(10, 15, 20, 30)
+		}
+		when 'cycle' {
+			(2, 3, 4, 5, 6)
+		}
+	}
+}
+
+//---- 茶葉と蒸らす分数。_argv[0] は番号（0 から）。範囲外なら空のハッシュ
+TM.Tea
+{
+	_names = ('ダージリン', 'アッサム', 'アールグレイ', 'カモミール')
+	_mins  = (3, 4, 3, 5)
+	_i     = TOINT(_argv[0])
+	_tea   = IHASH()
+
+	if RE_SEARCH(TOSTR(_argv[0]), '^[0-9]+$') && _i < ARRAYSIZE(_names) {
+		_tea = IHASH('name', _names[_i], 'min', _mins[_i])
+	}
+	_tea
+}
+
+
+//******************************************************************************
+//砂時計
+//******************************************************************************
+
+//---- 砂時計の一覧（ハッシュの配列）。壊れた要素は飛ばす
+TM.List
+{
+	_list = IARRAY
+
+	foreach tmtimers ; _t {
+		if GETTYPE(_t) == 5 {
+			_list ,= _t
+		}
+	}
+	_list
+}
+
+//---- 砂時計を立てる。_argv[0] kind / _argv[1] 名前 / _argv[2] 分
+//  立てられたら 1、6 本立っていたら 0
+TM.Add
+{
+	_list = TM.List
+	_ok   = 0
+
+	if ARRAYSIZE(_list) < 6 {
+		tmnextid = TOINT(tmnextid) + 1
+		_list ,= IHASH('id', tmnextid, 'kind', _argv[0], 'name', _argv[1], /
+		               'min', _argv[2], 'end', GETSECCOUNT + _argv[2] * 60)
+		tmtimers = _list
+		_ok = 1
+	}
+	_ok
+}
+
+//---- 番号 _argv[0] の砂時計を外し、外したもののハッシュを返す。無ければ空のハッシュ
+TM.Remove
+{
+	_keep = IARRAY
+	_gone = IHASH()
+
+	foreach TM.List ; _t {
+		if _t['id'] == TOINT(_argv[0]) {
+			_gone = _t
+		}
+		else {
+			_keep ,= _t
+		}
+	}
+	tmtimers = _keep
+	_gone
+}
+
+//---- いちばん先に落ちきる砂時計。無ければ空のハッシュ
+TM.Soonest
+{
+	_best = IHASH()
+
+	foreach TM.List ; _t {
+		if HASH_SIZE(_best) == 0 || _t['end'] < _best['end'] {
+			_best = _t
+		}
+	}
+	_best
+}
+
+//---- 砂時計の呼び名。紅茶なら茶葉の名前、それ以外は「10分の砂時計」
+TM.Label
+{
+	_t = _argv[0]
+	_s = _t['min'] + '分の砂時計'
+
+	if _t['kind'] == 'tea' {
+		_s = _t['name']
+	}
+	_s
+}
+
+
+//******************************************************************************
+//執務（ポモドーロ）
+//******************************************************************************
+
+//---- 執務をしているなら 1（休憩中も含む）
+TM.PomoOn
+{
+	_on = 0
+
+	if GETTYPE(tmpomo) == 5 && STRLEN(tmpomo['phase']) > 0 {
+		_on = 1
+	}
+	_on
+}
+
+//---- 集中しているなら 1（休憩中は 0）
+TM.Focusing
+{
+	_on = 0
+
+	if TM.PomoOn && tmpomo['phase'] == 'focus' {
+		_on = 1
+	}
+	_on
+}
+
+//---- 執務を始める。値は返さない（裸で呼ぶため）
+TM.PomoBegin
+{
+	tmpomo = IHASH('phase', 'focus', 'end', GETSECCOUNT + TM.Focus * 60, 'done', 0)
+}
+
+//---- 執務をやめる。値は返さない（裸で呼ぶため）
+//  執務の間は休憩をとれていたので、Claude Code の休憩のすすめは数え直す
+TM.PomoEnd
+{
+	tmpomo = IHASH()
+	CC.SkipBreak
+}
+
+
+//******************************************************************************
+//締め切りの確認
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//OnSecondChange から、話せるときだけ 1 秒おきに呼ばれる
+//落ちきった砂時計か、区切りの来た執務があれば、そのトーク。無ければ空文字列
+//1 回に 1 つだけ知らせる。残りは次の秒に回す
+//  _argv[0] 何も操作されていない秒数（SSP の reference[4]）
+//------------------------------------------------------------------------------
+TM.Check
+{
+	_now = GETSECCOUNT
+	_t   = TM.Soonest
+
+	if HASH_SIZE(_t) > 0 && _t['end'] <= _now {
+		_t = TM.Remove(_t['id'])
+		return TM.TalkTimerEnd(_t, _now - _t['end'])
+	}
+	if TM.PomoOn && tmpomo['end'] <= _now {
+		return TM.PomoNext(_now - tmpomo['end'], TOINT(_argv[0]))
+	}
+	''
+}
+
+//------------------------------------------------------------------------------
+//執務の区切りが来た。次の区切りへ進めて、そのトークを返す
+//  _argv[0] 区切りの時刻から遅れた秒数 / _argv[1] 何も操作されていない秒数
+//------------------------------------------------------------------------------
+TM.PomoNext
+{
+	_late  = _argv[0]
+	_idle  = _argv[1]
+	_now   = GETSECCOUNT
+	_done  = TOINT(tmpomo['done'])
+	_phase = tmpomo['phase']
+
+	//---- 10 分以上遅れた（SSP を閉じていた、PC が眠っていた）なら、執務はそこまで
+	if _late >= 600 {
+		TM.PomoEnd
+		return TM.TalkPomoLapse(_done)
+	}
+	if _phase == 'focus' {
+		//---- 集中の間じゅう何も触られていなかった。お留守なので打ち切る
+		if _idle >= TM.Focus * 60 {
+			TM.PomoEnd
+			return TM.TalkPomoAway(_done)
+		}
+		_done += 1
+		tmpomo['done'] = _done
+		if _done % TM.Cycle == 0 {
+			tmpomo['phase'] = 'long'
+			tmpomo['end']   = _now + TM.Long * 60
+			return TM.Sound('tm_set.wav') + TM.TalkLongBreak(_done, TM.Long)
+		}
+		tmpomo['phase'] = 'short'
+		tmpomo['end']   = _now + TM.Short * 60
+		return TM.Sound('tm_break.wav') + TM.TalkShortBreak(_done, TM.Short)
+	}
+	//---- 休憩が終わった。次の集中を始める
+	tmpomo['phase'] = 'focus'
+	tmpomo['end']   = _now + TM.Focus * 60
+	TM.Sound('tm_work.wav') + TM.TalkBackToWork(_done + 1, TM.Focus)
+}
+
+//---- 知らせの音。「音：鳴らさない」なら空
+TM.Sound
+{
+	_s = ''
+
+	if tmsoundoff != 1 {
+		_s = '\![sound,play,' + _argv[0] + ']'
+	}
+	_s
+}
+
+
+//******************************************************************************
+//残り時間の表示
+//******************************************************************************
+
+//---- 秒を「2:05」「1:02:05」の形に
+TM.Clock
+{
+	_sec = TOINT(_argv[0])
+	_s   = ''
+
+	if _sec < 0 {
+		_sec = 0
+	}
+	if _sec >= 3600 {
+		_s = TOINT(_sec / 3600) + ':' + SUBSTR(TOSTR(100 + TOINT(_sec % 3600 / 60)), 1, 2)
+	}
+	else {
+		_s = TOINT(_sec / 60)
+	}
+	_s + ':' + SUBSTR(TOSTR(100 + _sec % 60), 1, 2)
+}
+
+//---- 情報バーの中身。「執務 3本目 残り12:05・ダージリン 2:31 ほか1」
+TM.Info
+{
+	_now   = GETSECCOUNT
+	_parts = IARRAY
+	_list  = TM.List
+	_t     = TM.Soonest
+	_s     = ''
+
+	if TM.PomoOn {
+		if tmpomo['phase'] == 'focus' {
+			_parts ,= '執務 ' + (TOINT(tmpomo['done']) + 1) + '本目 残り' + TM.Clock(tmpomo['end'] - _now)
+		}
+		else {
+			_parts ,= '休憩 残り' + TM.Clock(tmpomo['end'] - _now)
+		}
+	}
+	if HASH_SIZE(_t) > 0 {
+		_s = TM.Label(_t) + ' ' + TM.Clock(_t['end'] - _now)
+		if ARRAYSIZE(_list) > 1 {
+			_s += ' ほか' + (ARRAYSIZE(_list) - 1)
+		}
+		_parts ,= _s
+	}
+	if ARRAYSIZE(_parts) == 0 {
+		_parts ,= '動いている砂時計はありません'
+	}
+	_s = _parts[0]
+	if ARRAYSIZE(_parts) > 1 {
+		_s += '・' + _parts[1]
+	}
+	SHIORI3FW.MakeShortText(_s, 46)
+}
+
+
+//******************************************************************************
+//メニュー
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//お茶とタイマー
+//------------------------------------------------------------------------------
+Menu_TIMER
+{
+	_items = IARRAY
+
+	if TM.Focusing {
+		'\u\s[10]\0\s[7]執務の最中ですのに、何ですの？'
+	}
+	else {
+		'\u\s[10]\0\s[0]何を計りますの？'
+		'\u\s[10]\0\s[26]お茶かしら、それとも執務かしら。'
+		'\u\s[10]\0\s[0]砂時計なら、アンソニーが持っていますわ。'
+	}
+	--
+	_items = ('ダージリン 3分|TM.StartTea|0', 'アッサム 4分|TM.StartTea|1', /
+	          'アールグレイ 3分|TM.StartTea|2', 'カモミール 5分|TM.StartTea|3', /
+	          '時間を指定|Menu_TMINPUT')
+	//---- 「砂時計を止める」が無いときも升を空けておき、執務の組を次の行の頭から始める
+	if ARRAYSIZE(TM.List) > 0 {
+		_items ,= '砂時計を止める|Menu_TMSTOPLIST'
+	}
+	else {
+		_items ,= '―|'
+	}
+	if TM.PomoOn {
+		_items ,= '執務をやめる|Menu_TMPOMOSTOP'
+	}
+	else {
+		_items ,= '執務を始める|Menu_TMPOMO'
+	}
+	_items ,= '執務の時間割|Menu_TMPLAN'
+	'\n\n[half]\_q' + TM.Grid(_items) + '\n\n[half]' + /
+	MENU.Grid('戻る|OpenMenu', '閉じる|Menu_TMCLOSE') + '\n' + MENU.InfoBar(TM.Info) + '\_q'
+}
+
+//---- MENU.Grid と同じ。ただし「―|」の項目は、選べない空きの升にする
+TM.Grid
+{
+	_items = IARRAY
+	_s     = ''
+	_i     = 0
+	_cell  = ''
+
+	foreach _argv ; _a {
+		if STRLEN(_a) > 0 {
+			_items ,= _a
+		}
+	}
+	for _i = 0 ; _i < ARRAYSIZE(_items) ; _i++ {
+		_cell = MENU.Cell(_items[_i], 22 - 2 * (_i % 2))
+		if _items[_i] == '―|' {
+			_cell = ''
+		}
+		if _i % 2 == 0 {
+			if _i > 0 {
+				_s += '\n'
+			}
+			_s += _cell
+		}
+		else {
+			_s += '\_l[180]' + _cell
+		}
+	}
+	_s
+}
+
+//---- メニューを閉じる
+Menu_TMCLOSE
+{
+	if TM.Focusing {
+		'\u\s[10]\0\s[26]さあ、執務にお戻りなさい。\e'
+	}
+	else {
+		'\u\s[10]\0\s[0]ご用のときは、またどうぞ。\e'
+		'\u\s[10]\0\s[6]では、わたくしはお茶の続きを。\e'
+	}
+}
+
+//---- 止めたり設定を変えたりしたあとの台詞に付ける選択肢
+TM.AfterItems
+{
+	'\0\n\n[half]\_q'
+	--
+	MENU.Grid('戻る|Menu_TIMER', '閉じる|Menu_TMCLOSE') + '\_q'
+}
+
+//------------------------------------------------------------------------------
+//\q の 3 番目以降の引数を使う選択肢（ID が TM. で始まるもの）は、ここで受ける
+//  reference[0] 選択肢の文字列 / reference[1] ID（関数名）/ reference[2] 以降 引数
+//  ここでトークを返せば OnChoiceSelect は来ない。TM. の関数は必ずトークを返すこと
+//------------------------------------------------------------------------------
+OnChoiceSelectEx
+{
+	if SUBSTR(reference[1], 0, 3) == 'TM.' && ISFUNC(reference[1]) {
+		EVAL(reference[1])
+	}
+}
+
+//------------------------------------------------------------------------------
+//紅茶を淹れる。reference[2] 茶葉の番号（TM.Tea）
+//------------------------------------------------------------------------------
+TM.StartTea
+{
+	_tea  = TM.Tea(reference[2])
+	_name = _tea['name']
+	_min  = _tea['min']
+
+	if HASH_SIZE(_tea) == 0 {
+		return ''
+	}
+	if !TM.Add('tea', _name, _min) {
+		return TM.TalkFull
+	}
+	"\u\s[10]\0\s[0]\1かしこまりました。\w9\n%(_name)を%(_min)分、蒸らします。\w8\0\s[25]よろしくてよ。\w9\n蒸らしすぎたら承知しませんわ。\e"
+	"\u\s[10]\0\s[26]アンソニー、%(_name)を。\w8\1はい、%(_min)分お待ちくださいませ。\w9\n砂時計を返します。\e"
+	"\u\s[10]\0\s[0]%(_name)ですわね。\w9\n%(_min)分、お待ちなさいな。\w8\1茶葉が開くまで、でございます。\e"
+}
+
+//------------------------------------------------------------------------------
+//時間を指定する
+//  入力欄の ID が On で始まるので、決定すると OnInputTimerMinutes が呼ばれる
+//------------------------------------------------------------------------------
+Menu_TMINPUT
+{
+	_last = TOINT(tmlastmin)
+
+	if _last <= 0 {
+		_last = 10
+	}
+	"\u\s[10]\0\s[0]何分、計りますの？\w9\n1 から 180 までの数でお書きなさい。\![open,inputbox,OnInputTimerMinutes,0,%(_last)]\e"
+}
+
+OnInputTimerMinutes
+{
+	_s = REPLACE(REPLACE(ZEN2HAN(reference[0]), '分', ''), ' ', '')
+	_m = TOINT(_s)
+
+	if !RE_SEARCH(_s, '^[0-9]+$') {
+		'\u\s[10]\0\s[7]数でお書きなさいな。'
+		--
+		TM.AfterItems
+	}
+	elseif _m < 1 || _m > 180 {
+		'\u\s[10]\0\s[4]1 から 180 分までにしてくださる？'
+		--
+		TM.AfterItems
+	}
+	elseif !TM.Add('timer', '', _m) {
+		TM.TalkFull
+	}
+	else {
+		tmlastmin = _m
+		"\u\s[10]\0\s[0]\1%(_m)分でございますね。\w9\n砂時計を返します。\e"
+		"\u\s[10]\0\s[26]%(_m)分ですわね。\w9\nアンソニー、計っておきなさい。\w8\1かしこまりました。\e"
+	}
+}
+
+//---- 砂時計が 6 本とも立っている
+TM.TalkFull
+{
+	'\u\s[10]\0\s[0]\1お嬢様、砂時計がもう手元にございません。\w8\0\s[7]どれか止めてからになさい。'
+	--
+	TM.AfterItems
+}
+
+//------------------------------------------------------------------------------
+//砂時計を止める
+//------------------------------------------------------------------------------
+Menu_TMSTOPLIST
+{
+	_now   = GETSECCOUNT
+	_items = IARRAY
+
+	foreach TM.List ; _t {
+		_items ,= TM.Label(_t) + ' ' + TM.Clock(_t['end'] - _now) + '|TM.StopTimer|' + _t['id']
+	}
+	if ARRAYSIZE(_items) == 0 {
+		'\u\s[10]\0\s[0]\1砂時計は、もうどれも落ちきっております。'
+		--
+		TM.AfterItems
+	}
+	else {
+		'\u\s[10]\0\s[0]どれを止めますの？'
+		--
+		'\n\n[half]\_q' + MENU.Grid(_items) + '\n\n[half]' + /
+		MENU.Grid('すべて止める|Menu_TMSTOPALL', '戻る|Menu_TIMER') + '\_q'
+	}
+}
+
+//---- reference[2] 止める砂時計の番号
+TM.StopTimer
+{
+	_t    = TM.Remove(reference[2])
+	_name = ''
+
+	if HASH_SIZE(_t) == 0 {
+		'\u\s[10]\0\s[0]\1その砂時計は、もう落ちきっております。'
+	}
+	else {
+		_name = TM.Label(_t)
+		"\u\s[10]\0\s[0]\1かしこまりました。\w9\n%(_name)は取りやめます。"
+	}
+	--
+	TM.AfterItems
+}
+
+Menu_TMSTOPALL
+{
+	tmtimers = IARRAY
+	'\u\s[10]\0\s[0]\1かしこまりました。\w9\n砂時計はすべて下げます。'
+	--
+	TM.AfterItems
+}
+
+//------------------------------------------------------------------------------
+//執務を始める・やめる
+//------------------------------------------------------------------------------
+Menu_TMPOMO
+{
+	_f = TM.Focus
+
+	TM.PomoBegin
+	"\u\s[10]\0\s[26]よろしくてよ。\w9\n%(_f)分、わたくしが見張って差し上げますわ。\w8\1その間、お嬢様もお静かに。\w8\0\s[7]\n\n‥\w5‥\w5わかっていますわ。\e"
+	"\u\s[10]\0\s[0]執務の時間ですわね。\w9\nまずは%(_f)分、脇目も振らずに。\w8\1お茶は休憩のときにお持ちします。\e"
+	"\u\s[10]\0\s[26]始めますわよ、%(username)。\w9\n%(_f)分のあいだ、わたくしは黙っていますわ。\w8\1‥\w5‥\w5お嬢様が、でございますか。\w8\0\s[7]\n\nできますわよ！\e"
+}
+
+Menu_TMPOMOSTOP
+{
+	_n = TOINT(tmpomo['done'])
+
+	TM.PomoEnd
+	if _n == 0 {
+		'\u\s[10]\0\s[4]一本も終わらないうちに？\w8\1急なご用もございましょう。\w8\0\s[0]\n\n‥\w5‥\w5まあ、よろしいわ。\w9\nまたいつでもお始めなさい。\e'
+	}
+	else {
+		"\u\s[10]\0\s[25]%(_n)本、片付けましたわね。\w9\n今日の執務はここまでですの？\w8\1お疲れさまでございました。\e"
+		"\u\s[10]\0\s[26]%(_n)本ですわね。\w9\nよろしくてよ、今日はここまで。\w8\1お茶の支度をいたします。\e"
+	}
+}
+
+//------------------------------------------------------------------------------
+//執務の時間割（設定）
+//------------------------------------------------------------------------------
+Menu_TMPLAN
+{
+	_f     = TM.Focus
+	_short = TM.Short
+	_long  = TM.Long
+	_c     = TM.Cycle
+	_sound = '鳴らす'
+
+	if tmsoundoff == 1 {
+		_sound = '鳴らさない'
+	}
+	'\u\s[10]\0\s[26]執務の時間割ですわね。'
+	--
+	'\n\n[half]\_q'
+	--
+	MENU.Grid("集中：%(_f)分|TM.Plan|focus", "短い休憩：%(_short)分|TM.Plan|short", /
+	          "長い休憩：%(_long)分|TM.Plan|long", "長い休憩まで：%(_c)本|TM.Plan|cycle", /
+	          "音：%(_sound)|TM.Plan|sound")
+	--
+	'\n\n[half]'
+	--
+	MENU.Grid('戻る|Menu_TIMER', '閉じる|Menu_TMCLOSE')
+	--
+	'\n'
+	--
+	MENU.InfoBar("集中%(_f)分、休憩%(_short)分、%(_c)本ごとに%(_long)分") + '\_q'
+}
+
+//---- 時間割の値を次へ進めて、時間割のメニューを出し直す。reference[2] どの値か
+//  執務の途中で変えたときは、次の区切りから効く
+TM.Plan
+{
+	_key   = reference[2]
+	_steps = TM.Steps(_key)
+	_now   = 0
+	_next  = 0
+	_i     = 0
+	_head  = ''
+
+	if _key == 'sound' {
+		if tmsoundoff == 1 {
+			tmsoundoff = 0
+			_head = TM.Sound('tm_tea.wav')
+		}
+		else {
+			tmsoundoff = 1
+		}
+		return _head + Menu_TMPLAN
+	}
+	if ARRAYSIZE(_steps) == 0 {
+		return ''
+	}
+	case _key {
+		when 'focus' {
+			_now = TM.Focus
+		}
+		when 'short' {
+			_now = TM.Short
+		}
+		when 'long' {
+			_now = TM.Long
+		}
+		when 'cycle' {
+			_now = TM.Cycle
+		}
+	}
+	//---- 今の値より大きい最初の値。無ければ最初に戻る
+	_next = _steps[0]
+	for _i = 0 ; _i < ARRAYSIZE(_steps) ; _i++ {
+		if _steps[_i] > _now {
+			_next = _steps[_i]
+			break
+		}
+	}
+	case _key {
+		when 'focus' {
+			tmfocus = _next
+		}
+		when 'short' {
+			tmshort = _next
+		}
+		when 'long' {
+			tmlong = _next
+		}
+		when 'cycle' {
+			tmcycle = _next
+		}
+	}
+	Menu_TMPLAN
+}
+
+
+//******************************************************************************
+//知らせのトーク
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//砂時計が落ちきった
+//  _argv[0] 砂時計のハッシュ / _argv[1] 落ちきってから遅れた秒数
+//------------------------------------------------------------------------------
+TM.TalkTimerEnd
+{
+	_t    = _argv[0]
+	_late = _argv[1]
+	_name = _t['name']
+	_min  = _t['min']
+	_ago  = CC.Duration(_late)
+
+	//---- 5 分以上遅れた（SSP を閉じていた、PC が眠っていた）ときは、音を鳴らさない
+	if _t['kind'] == 'tea' {
+		if _late >= 300 {
+			"\u\s[10]\0\s[0]\1‥\w5‥\w5お嬢様、%(_name)が\w9\nすっかり冷めております。\w8\0\s[4]蒸らしすぎどころでは\w9\nありませんわね。\w8\1\n\n淹れ直してまいります。\e"
+		}
+		else {
+			TM.Sound('tm_tea.wav')
+			--
+			"\u\s[10]\0\s[0]\1お嬢様、%(_name)が入りました。\w8\0\s[25]ありがとう、アンソニー。\w9\n%(username)も、冷めないうちに召し上がれ。\e"
+			"\u\s[10]\0\s[0]\1%(_name)、蒸らし終わりました。\w9\nお注ぎいたします。\w8\0\s[6]‥\w5‥\w5よい香りですわ。\w9\n%(username)も一息つきなさいな。\e"
+			"\u\s[10]\0\s[0]\1%(_min)分、きっかりでございます。\w9\n%(_name)をどうぞ。\w8\0\s[26]時間どおりですわね。\w9\nさすがはわたくしの執事ですわ。\e"
+		}
+	}
+	else {
+		if _late >= 300 {
+			"\u\s[10]\0\s[0]\1お嬢様、%(_min)分の砂時計が\w9\nとうに落ちきっておりました。\w8\0\s[4]%(_ago)ほど過ぎていましてよ。\w9\nお知らせしそびれましたわね。\e"
+		}
+		else {
+			TM.Sound('tm_timer.wav')
+			--
+			"\u\s[10]\0\s[0]\1お時間でございます。\w9\n%(_min)分、たちました。\w8\0\s[26]%(username)、時間ですわよ。\e"
+			"\u\s[10]\0\s[2]\1失礼いたします。\w9\n%(_min)分の砂時計が落ちきりました。\w8\0\s[0]あら、もうそんなに？\w9\n%(username)、お忘れなく。\e"
+		}
+	}
+}
+
+//---- 集中が片付いた。短い休憩へ。_argv[0] 片付いた本数 / _argv[1] 休憩の分数
+TM.TalkShortBreak
+{
+	_n = _argv[0]
+	_b = _argv[1]
+
+	"\u\s[10]\0\s[0]そこまでですわ、%(username)。\w9\n手を止めて、%(_b)分お休みなさい。\w8\1お茶をお持ちいたします。\e"
+	"\u\s[10]\0\s[25]%(_n)本目、片付きましたわね。\w9\n%(_b)分、休憩になさいな。\w8\1肩を回すのもよろしいかと。\e"
+	"\u\s[10]\0\s[6]‥\w5‥\w5はい、そこまで。\w9\n画面から目を離しなさいな。\w8\1%(_b)分後にお呼びいたします。\e"
+}
+
+//---- 集中がひと組片付いた。長い休憩へ。_argv[0] 片付いた本数 / _argv[1] 休憩の分数
+TM.TalkLongBreak
+{
+	_n = _argv[0]
+	_b = _argv[1]
+
+	"\u\s[10]\0\s[5]おーっほっほっほ！\w9\n%(_n)本、見事に片付きましたわね！\w8\1長めのご休憩を%(_b)分、でございます。\w8\0\s[25]\n\nよく頑張りましたわ。\w9\nゆっくりお茶になさい。\e"
+	"\u\s[10]\0\s[5]おーっほっほっほ！\w9\nこれで%(_n)本ですわ。\w8\1お見事でございます。\w9\n%(_b)分、しっかりお休みくださいませ。\e"
+}
+
+//---- 休憩が終わった。次の集中へ。_argv[0] 次が何本目か / _argv[1] 集中の分数
+TM.TalkBackToWork
+{
+	_k = _argv[0]
+	_f = _argv[1]
+
+	"\u\s[10]\0\s[26]休憩はおしまいですわ。\w9\n%(_k)本目、始めますわよ。\w8\1お茶は下げておきます。\e"
+	"\u\s[10]\1お嬢様、お時間でございます。\w8\0\s[0]ええ。\w9\n%(username)、次の%(_f)分ですわ。\e"
+	"\u\s[10]\0\s[7]いつまで休んでいますの？\w9\n‥\w5‥\w5冗談ですわ、ちょうど時間ですの。\w8\1%(_k)本目でございます。\e"
+}
+
+//---- 集中の間、何も触られていなかった。_argv[0] それまでに片付いた本数
+TM.TalkPomoAway
+{
+	_n = _argv[0]
+
+	'\u\s[10]\0\s[4]‥\w5‥\w5あら、お留守でしたの？\w9\n執務はここで打ち切っておきますわ。\w8\1またお声がけくださいませ。'
+	--
+	if _n > 0 {
+		"\w8\0\s[0]\n\nそれまでの%(_n)本は、\w9\nちゃんと数えてありましてよ。"
+	}
+	--
+	'\e'
+}
+
+//---- 区切りから 10 分以上たってしまった。_argv[0] それまでに片付いた本数
+TM.TalkPomoLapse
+{
+	_n = _argv[0]
+
+	'\u\s[10]\0\s[2]あら、執務の途中でしたのに、\w9\nずいぶん間が空きましたわね。\w8\1時間割はいったん下げておきます。'
+	--
+	if _n > 0 {
+		"\w8\0\s[0]\n\nそれまでに%(_n)本、\w9\n片付いていましてよ。"
+	}
+	--
+	'\e'
+}
