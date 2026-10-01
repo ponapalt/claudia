@@ -45,13 +45,13 @@ file,ghost/master/dic/system/aya_lilith/aya_lilith.dicbdc8efec10394cd49d830321a
 file,ghost/master/dic/system/aya_lilith/aya_lilith_ex.dice1171dff28d8dc184c6e2bacad1e3c81size=24515date=2026-09-19T18:20:56
 file,ghost/master/dic/system/docs/manual_aya_lilith.md56853e0d4ece3a54f6e20cb1499bfe76size=19620date=2026-09-19T18:20:56
 file,ghost/master/dic/system/docs/manual_aya_lilith_ex.mdb932789fcec162acc2a0fa71c4594092size=17403date=2026-09-19T18:20:56
-file,ghost/master/dic/system/docs/manual_yaya_base.md60e7cbed176ebc4fae49108f2c1024c2size=28231date=2026-09-19T18:20:56
+file,ghost/master/dic/system/docs/manual_yaya_base.mdffeaa45923469a593e00434b7c13f6d2size=29705date=2026-10-01T12:59:04
 file,ghost/master/dic/system/yaya_base/_loading_order.txt608cdbb0ef2328a7f2569d3e796ccd95size=126date=2026-09-19T18:20:56
 file,ghost/master/dic/system/yaya_base/compatible.dic4f8b1e8c8c08dc44e70b1bd4f52a1affsize=4297date=2026-09-19T18:20:56
 file,ghost/master/dic/system/yaya_base/config.dicd07874f4b1ba03ba111df8f2fa3cd6dbsize=2592date=2026-09-19T18:20:56
 file,ghost/master/dic/system/yaya_base/lint.dic1cf05026921eac31d2c89d225cefc2cesize=21118date=2026-09-19T18:20:56
 file,ghost/master/dic/system/yaya_base/optional.dicff4da728a656a8aa6a38939e654c51f2size=9953date=2026-09-19T18:20:56
-file,ghost/master/dic/system/yaya_base/shiori3.dic7238bf8d0a1f371ebafd4a8335af6076size=61278date=2026-09-27T05:53:26
+file,ghost/master/dic/system/yaya_base/shiori3.dica96d8b7160a0ea55ed03667ce5ed2506size=63810date=2026-10-01T12:59:04
 file,ghost/master/menu/menu_anthony_background.png95d76f8f9c4ce9ed9fc467b3be1fdf3fsize=20053date=2026-09-25T19:35:26
 file,ghost/master/menu/menu_anthony_foreground.pngdee1d3f06acfd8b92023656df95338f8size=18676date=2026-09-25T19:35:26
 file,ghost/master/menu/menu_anthony_sidebar.png8cabd6f36b79124ae55752e86a6f8e85size=2578date=2026-09-25T19:35:26
