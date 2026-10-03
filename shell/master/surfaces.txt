@@ -133,6 +133,19 @@ animation0.pattern2,overlay,1701,50,0,0
 animation0.pattern3,overlay,-1,50,0,0
 }
 
+surface8
+{
+collisionex0,Fan,polygon,138,170,150,156,175,148,200,152,215,165,190,183,145,180
+collisionex1,Head,rect,106,31,225,108
+collisionex2,Face,rect,125,110,206,148
+collisionex3,Bust,rect,131,188,200,238
+collisionex4,Hair,rect,69,138,125,288
+collisionex5,Hair,rect,216,138,250,206
+collisionex6,Foot,ellipse,142,472,163,494
+collisionex7,Foot,ellipse,163,472,184,494
+collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
+}
+
 surface9
 {
 element0,base,surface0.png,0,0
