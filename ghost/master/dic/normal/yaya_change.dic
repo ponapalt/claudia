@@ -44,7 +44,24 @@ OnGhostChangedOther
 	_escaped_name = SHIORI3FW.EscapeAllTags(reference[0])
 	"\u\s[10]\0\s[7]%(_escaped_name)の次に、わたくしですの？\w8\1お嬢様、順番は気になさらずに。\w8\0\s[26]\n\n‥\w5‥\w5まあ、最後に選ばれたのが\w9\nわたくしなら、よろしいですわ。\e"
 	"\u\s[10]\0\s[0]ごきげんよう、%(username)。\w9\nやはりわたくしのところに戻ってきましたわね。\w8\1お待ちしておりました。\e"
-	"\u\s[10]\0\s[26]%(_escaped_name)のところは、\w9\nいかがでしたの？\w8\1お嬢様、それとなく\w9\n探りを入れておいでです。\w8\0\s[7]\n\n聞いてみただけですわ！\e"
+	"\u\s[10]\0\s[26]%(_escaped_name)のところは、\w9\nいかがでしたの？\w8\1お嬢様、それとなく\w9\n探りを入れておいでです。\w8\0\s[9]\n\n聞いてみただけですわ！\e"
+}
+
+
+//------------------------------------------------------------------------------
+// 自分自身（Claudia）への切り替え＝ゴーストの再読み込み
+//------------------------------------------------------------------------------
+OnGhostChanging_Claudia
+{
+	'\u\s[10]\0\s[0]少し身支度を整えてまいりますわ。\w8\1お色直しでございますね。\w8\0\s[26]\n\nすぐ戻りますから、\w9\nよそ見をしていてはいけませんわよ。\e'
+	'\u\s[10]\0\s[6]‥\w5‥\w5また手直しですの？\w8\1お嬢様、すぐに済むかと。\w8\0\s[7]\n\n美しく仕上げなかったら、\w9\n承知しませんわよ。\e'
+}
+
+OnGhostChanged_Claudia
+{
+	'\u\s[10]\0\s[25]お待たせしましたわ。\w9\n身支度は完璧でしてよ。\w8\1お帰りなさいませ、お嬢様。\e'
+	'\u\s[10]\0\s[0]ただいま戻りましたわ。\w9\nどこか変わったところはありまして？\w8\1\s[11]‥\w5‥\w5\w8\0\s[9]\n\nな、何か言いなさいな！\e'
+	'\u\s[10]\0\s[26]生まれ変わった気分ですわ。\w8\1中身はいつものお嬢様でございます。\w8\0\s[7]\n\nひと言多いですわ。\e'
 }
 
 
@@ -145,7 +162,7 @@ OnGhostChanging
 
 OnGhostChanged
 {
-	AYATEMPLATE.ExecuteChangeCallTalk("OnGhostChanged","OnBoot")
+	ChangeCall.WithCC(AYATEMPLATE.ExecuteChangeCallTalk("OnGhostChanged","OnBoot"))
 }
 
 OnGhostCalling
@@ -155,7 +172,24 @@ OnGhostCalling
 
 OnGhostCalled
 {
-	AYATEMPLATE.ExecuteChangeCallTalk("OnGhostCalled","OnBoot")
+	ChangeCall.WithCC(AYATEMPLATE.ExecuteChangeCallTalk("OnGhostCalled","OnBoot"))
+}
+
+//OnGhostChanged / OnGhostCalled は OnBoot の代わりに呼ばれるので、OnBoot と同じく
+//Claude Code の見張りを立て（CC.Start）、話し終わって 5 秒後の確認（CC.BootTimer）を
+//最後の \e の前に置く。OnBoot に振り替えられたときは OnBoot がしているので、そのまま返す
+ChangeCall.WithCC
+{
+	_talk = _argv[0]
+	_out  = _talk
+
+	if STRSTR(_talk, 'OnClaudeCodeBootCheck', 0) < 0 {
+		if SUBSTR(_talk, STRLEN(_talk) - 2, 2) == '\e' {
+			_talk = SUBSTR(_talk, 0, STRLEN(_talk) - 2)
+		}
+		_out = CC.Start + _talk + CC.BootTimer + '\e'
+	}
+	_out
 }
 
 OnGhostCallComplete
