@@ -203,6 +203,19 @@ collisionex7,Foot,ellipse,163,472,184,494
 collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
 }
 
+surface27
+{
+collisionex0,Fan,polygon,159,157,167,151,174,154,188,186,178,187
+collisionex1,Head,rect,106,31,225,108
+collisionex2,Face,rect,125,110,206,151
+collisionex3,Bust,rect,131,188,200,238
+collisionex4,Hair,rect,69,138,125,288
+collisionex5,Hair,rect,200,138,250,206
+collisionex6,Foot,ellipse,142,472,163,494
+collisionex7,Foot,ellipse,163,472,184,494
+collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
+}
+
 surface29
 {
 element0,base,surface29.png,0,0
