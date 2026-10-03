@@ -158,7 +158,7 @@ OPENMENU.Body
 	}
 	_items ,= '話しかける|Menu_COMMUNICATEOPEN'
 	_items ,= 'ゴーストと話す|Menu_GHOSTCOMSTART'
-	_items ,= 'これまでの功績|Menu_CCSTATS'
+	_items ,= '功績録と業務報告|Menu_CCSTATS'
 	_items ,= 'お茶とタイマー|Menu_TIMER'
 	//---- Claude Code が動いているときだけ見せる
 	if ARRAYSIZE(_list) > 0 {
@@ -326,6 +326,10 @@ OnUserInputCancel
 		//---- タイマーの分数を聞いたのに閉じられた（yaya_teatimer.dic）
 		return '\u\s[10]\0\s[0]\1では、砂時計はしまっておきます。' + TM.AfterItems
 	}
+	if reference[0] == 'OnInputCCSFrom' || reference[0] == 'OnInputCCSTo' {
+		//---- 業務報告の期間を聞いたのに閉じられた。今の期間の報告に戻る
+		return Menu_CCPAGE1
+	}
 	if reference[0] != 'OnInputUserName' {
 		return ''
 	}
@@ -439,7 +443,7 @@ Menu_CLAUDECODE
 	_talk
 }
 
-//---- 功績録（yaya_ccstats.dic）。メニューから開くと 1 頁目を出し、回数を数える
+//---- 功績録（yaya_ccstats.dic）。メニューから開くと本日の業務報告（1 頁目）を出し、回数を数える
 Menu_CCSTATS
 {
 	CCS.Record
@@ -483,34 +487,92 @@ Menu_CCPAGE5
 	CCSTATS.AfterItems
 }
 
+Menu_CCPAGE6
+{
+	CCS.Record(6)
+	--
+	CCSTATS.AfterItems
+}
+
 //---- 功績録の各頁の下に付ける選択肢
 //  最後はアンソニーが話しているので、選択肢はクローディアのバルーンに出す
-//  Claude Code が無い PC では、業務報告は出さない（CCS.NoClaude）
 CCSTATS.AfterItems
 {
 	'\w8\0\n'
-	--
-	if !CCS.NoClaude {
-		AYATEMPLATE.MenuItem("本日の業務報告は？","Menu_CCTODAY")
-	}
 	--
 	AYATEMPLATE.MenuItem("戻る","OpenMenu")
 	--
 	AYATEMPLATE.MenuItem("閉じる","Menu_CCCLOSE")
 }
 
-//---- 本日の業務報告（yaya_ccstats.dic）
-Menu_CCTODAY
+//------------------------------------------------------------------------------
+//業務報告の期間を切り替える（1 頁目の期間の選択肢から。CCS.PeriodBar）
+//  \q の ID が On で始まるので、選ぶと OnCCSPeriod が呼ばれる（reference[0] が期間の ID）
+//  「指定」なら、始まりの日と終わりの日を日付の入力欄で聞く
+//------------------------------------------------------------------------------
+OnCCSPeriod
 {
-	CCS.Today.Report
-	--
-	'\w8\0\n'
-	--
-	AYATEMPLATE.MenuItem("これまでの功績は？","Menu_CCSTATS")
-	--
-	AYATEMPLATE.MenuItem("戻る","OpenMenu")
-	--
-	AYATEMPLATE.MenuItem("閉じる","Menu_CCCLOSE")
+	_key = 0
+
+	if reference[0] != 'custom' {
+		ccsperiod = reference[0]
+		return Menu_CCPAGE1
+	}
+	_key = ccsqfrom
+	if _key <= 0 {
+		_key = (CCS.Today / 100) * 100 + 1
+	}
+	'\u\s[10]\0\s[27]いつからの働きぶりを\w9\nご覧になりたいの？\![open,dateinput,OnInputCCSFrom,0,' + (_key / 10000) + ',' + ((_key / 100) % 100) + ',' + (_key % 100) + ']\e'
+}
+
+//---- 日付の入力欄の値（「2026,9,1」）を業務日の番号にする。読めなければ 0
+CCSTATS.InputKey
+{
+	_a = SPLIT(_argv[0], ',')
+
+	if ARRAYSIZE(_a) != 3 || TOINT(_a[0]) < 1970 || TOINT(_a[1]) < 1 || TOINT(_a[2]) < 1 {
+		return 0
+	}
+	TOINT(_a[0]) * 10000 + TOINT(_a[1]) * 100 + TOINT(_a[2])
+}
+
+//---- 始まりの日が決まった。続けて終わりの日を聞く（初めは本日）
+OnInputCCSFrom
+{
+	_key   = CCSTATS.InputKey(reference[0])
+	_today = CCS.Today
+
+	if _key <= 0 {
+		return Menu_CCPAGE1
+	}
+	ccsqfrom = _key
+	'\u\s[10]\0\s[27]では、いつまで？\![open,dateinput,OnInputCCSTo,0,' + (_today / 10000) + ',' + ((_today / 100) % 100) + ',' + (_today % 100) + ']\e'
+}
+
+//---- 終わりの日が決まった。前後が逆なら入れ替え、本日より先は本日までにする
+OnInputCCSTo
+{
+	_key   = CCSTATS.InputKey(reference[0])
+	_today = CCS.Today
+	_tmp   = 0
+
+	if _key <= 0 || ccsqfrom <= 0 {
+		return Menu_CCPAGE1
+	}
+	ccsqto = _key
+	if ccsqto < ccsqfrom {
+		_tmp     = ccsqfrom
+		ccsqfrom = ccsqto
+		ccsqto   = _tmp
+	}
+	if ccsqto > _today {
+		ccsqto = _today
+	}
+	if ccsqfrom > _today {
+		ccsqfrom = _today
+	}
+	ccsperiod = 'custom'
+	Menu_CCPAGE1
 }
 
 //---- 功績録と業務報告を閉じる

@@ -3,7 +3,7 @@
 // Claude Code の功績録辞書
 //******************************************************************************
 //
-//これまでの働きを数えて、功績録、称号、節目のお祝い、本日の業務報告として読み上げる。
+//これまでの働きを数えて、功績録、称号、節目のお祝い、期間ごとの業務報告として読み上げる。
 //好かれ具合ではなく、やってきたことを数えて称える。数える元は 2 つ。
 //
 //1. Claude Code の依頼の履歴 %USERPROFILE%\.claude\history.jsonl（CCS.Hist*）
@@ -34,6 +34,10 @@
 //CCS.Backfill で一度だけ読み直して数える（ほかの数には触らない）。
 //
 //「本日」は午前 4 時で区切る（夜更かしの作業を前の日に入れるため。CCS.DayKey）。
+//
+//業務報告（功績録の 1 頁目）は、選んだ期間について履歴を読み直して数える（CCS.Span）。
+//2 の数は日ごとの合計を、日が変わるときに ccsdlog に残す（CCS.RollDay）。
+//残し始めたのは ccsdlogsince からで、それより前の日の分は無い。
 //
 //注意: YAYA では関数を裸の文で呼ぶと、その戻り値もブロックの出力候補になる。
 //副作用だけの関数（CCS.Init、CCS.Count、CCS.HistRead など）は値を返さないように書いてある。
@@ -105,6 +109,27 @@ CCS.Init
 	if !ISVAR('ccstitles') {
 		ccstitles = IARRAY
 	}
+	//---- 見届けた数の日ごとの記録（CCS.RollDay）。キーは業務日の番号、値は
+	//---- 「返事待ち,大仕事,働いた秒数,作業した秒数,セッション」。ccsdlogsince から残している
+	if GETTYPE(ccsdlog) != 5 {
+		ccsdlog      = IHASH()
+		ccsdlogsince = ccsday
+		if ccsdlogsince <= 0 {
+			ccsdlogsince = CCS.Today
+		}
+	}
+	//---- 履歴の月ごとの読み始めの位置（CCS.Span）。キーは 202609 の形の月
+	if GETTYPE(ccshmpos) != 5 {
+		ccshmpos = IHASH()
+	}
+	//---- 業務報告の期間（CCS.PeriodRange）と、指定した期間の始まりと終わり
+	if !ISVAR('ccsperiod') {
+		ccsperiod = 'today'
+	}
+	if !ISVAR('ccsqfrom') {
+		ccsqfrom = 0
+		ccsqto   = 0
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -161,6 +186,10 @@ CCS.RollDay
 
 	CCS.Init
 	if ccsday != _today {
+		//---- 前の日の分を、期間の業務報告のために残す
+		if ccsday > 0 && ccsd_answer + ccsd_done + ccsd_busy + ccsd_work + ccsd_new > 0 {
+			ccsdlog[TOSTR(ccsday)] = ccsd_answer + ',' + ccsd_done + ',' + ccsd_busy + ',' + ccsd_work + ',' + ccsd_new
+		}
 		ccsday      = _today
 		ccsd_answer = 0
 		ccsd_done   = 0
@@ -313,8 +342,10 @@ CCS.HistRead
 	}
 	if _size > 0 && _size != ccshpos {
 		//---- ファイルが縮んだ（作り直された）ら頭から。数えた分は ccshlast で飛ばす
+		//---- 月ごとの読み始めの位置（CCS.Span）も使えなくなる
 		if _size < ccshpos {
-			ccshpos = 0
+			ccshpos  = 0
+			ccshmpos = IHASH()
 		}
 		if FOPEN(_path, 'r') {
 			if ccshpos > 0 {
@@ -556,6 +587,315 @@ CCS.HourSum
 	while _i <= _last {
 		_sum += ccshhour[_i]
 		_i++
+	}
+	_sum
+}
+
+
+//******************************************************************************
+//期間の業務報告のための集計
+//******************************************************************************
+
+//---- 業務日の番号の日の正午の Unix 秒
+CCS.KeySec
+{
+	_key = TOINT(_argv[0])
+	GETSECCOUNT(_key / 10000, (_key / 100) % 100, _key % 100, 12, 0, 0)
+}
+
+//---- 業務日の番号に日数を足す（引くときは負の数）
+CCS.KeyAdd
+{
+	CCS.DayKey(CCS.KeySec(_argv[0]) + TOINT(_argv[1]) * 86400 + 14400)
+}
+
+//---- _argv[0] の日から _argv[1] の日までの日数（両端を含む）
+CCS.KeyDays
+{
+	(CCS.KeySec(_argv[1]) - CCS.KeySec(_argv[0]) + 43200) / 86400 + 1
+}
+
+//---- 業務日の番号を「10月4日（日）」にする
+//  _argv[1] が 1 なら「2026年10月4日」、2 なら「10月4日」（どちらも曜日なし）
+CCS.KeyText
+{
+	_key = TOINT(_argv[0])
+	_t   = GETTIME(CCS.KeySec(_key))
+
+	if _argv[1] == 1 {
+		return CCS.DateText(_key)
+	}
+	if _argv[1] == 2 {
+		return _t[1] + '月' + _t[2] + '日'
+	}
+	_t[1] + '月' + _t[2] + '日（' + SUBSTR('日月火水木金土', _t[3], 1) + '）'
+}
+
+//------------------------------------------------------------------------------
+//業務報告の期間。ID と名前を同じ順に並べる（CCS.PeriodBar）
+//------------------------------------------------------------------------------
+CCS.PeriodIDs
+{
+	('today', 'yesterday', 'week', 'lastweek', 'month', 'lastmonth', 'year', 'custom')
+}
+
+CCS.PeriodNames
+{
+	('本日', '昨日', '今週', '先週', '今月', '先月', '今年', '指定')
+}
+
+//------------------------------------------------------------------------------
+//期間の始まりと終わりの業務日の番号を、配列で返す
+//  _argv[0] 期間の ID（CCS.PeriodIDs）。週は月曜に始まる
+//  custom は ccsqfrom から ccsqto まで。まだ指定されていなければ本日
+//------------------------------------------------------------------------------
+CCS.PeriodRange
+{
+	_today = CCS.Today
+	_t     = GETTIME(CCS.KeySec(_today))
+	_mon   = CCS.KeyAdd(_today, -((_t[3] + 6) % 7))
+	_first = _t[0] * 10000 + _t[1] * 100 + 1
+	_from  = _today
+	_to    = _today
+
+	case _argv[0] {
+		when 'yesterday' {
+			_from = CCS.KeyAdd(_today, -1)
+			_to   = _from
+		}
+		when 'week' {
+			_from = _mon
+		}
+		when 'lastweek' {
+			_from = CCS.KeyAdd(_mon, -7)
+			_to   = CCS.KeyAdd(_mon, -1)
+		}
+		when 'month' {
+			_from = _first
+		}
+		when 'lastmonth' {
+			_to   = CCS.KeyAdd(_first, -1)
+			_from = (_to / 100) * 100 + 1
+		}
+		when 'year' {
+			_from = _t[0] * 10000 + 101
+		}
+		when 'custom' {
+			if ccsqfrom > 0 && ccsqto > 0 {
+				_from = ccsqfrom
+				_to   = ccsqto
+			}
+		}
+	}
+	(_from, _to)
+}
+
+//------------------------------------------------------------------------------
+//月ごとの読み始めの位置の索引（ccshmpos）から、_argv[0] の月かそれより前で
+//いちばん近い月を探す。配列で (位置, その月)。使える月が無ければ (0, 0)
+//------------------------------------------------------------------------------
+CCS.MonthPos
+{
+	_want = TOINT(_argv[0])
+	_best = 0
+	_pos  = 0
+	_m    = ''
+	_p    = 0
+
+	foreach ccshmpos ; _m, _p {
+		if TOINT(_m) <= _want && TOINT(_m) > _best {
+			_best = TOINT(_m)
+			_pos  = TOINT(_p)
+		}
+	}
+	(_pos, _best)
+}
+
+//------------------------------------------------------------------------------
+//期間の依頼を、履歴（history.jsonl）を読み直して数える
+//  _argv[0] 始まり / _argv[1] 終わり（業務日の番号）
+//  ハッシュで返す
+//    n 依頼 / days 登城した日 / max 一日の最多 / maxkey その日 / late 深夜（0〜4時台）/
+//    peak よく働く時刻（依頼が無ければ -1）/ lands 作業フォルダの数 /
+//    p0〜p2、c0〜c2 依頼の多い作業フォルダの名前と数（無い分は空文字列と 0）
+//
+//  時刻と作業フォルダは JSON を解かずに文字列で拾う。行は時刻の順に並ぶが、
+//  少し前後しても取りこぼさないよう、終わりの次の日を越えた行が出てから読むのをやめる。
+//  月の頭の行の位置を ccshmpos に覚えておき、次からは始まりの前の月の頭から読む。
+//  覚えた位置の行がその月でなければ（履歴が作り直されたなど）、索引を捨てて頭から読む
+//------------------------------------------------------------------------------
+CCS.Span
+{
+	_from  = TOINT(_argv[0])
+	_to    = TOINT(_argv[1])
+	_stop  = CCS.KeyAdd(_to, 1)
+	_path  = CCS.HistPath
+	_seek  = IARRAY
+	_check = 0
+	_prevm = 0
+	_pos   = 0
+	_line  = ''
+	_i     = 0
+	_ms    = 0
+	_key   = 0
+	_m     = 0
+	_j     = 0
+	_t     = IARRAY
+	_name  = ''
+	_n     = 0
+	_days  = 0
+	_max   = 0
+	_maxkey = 0
+	_late  = 0
+	_daykey = 0
+	_dayn  = 0
+	_hour  = IARRAY
+	_proj  = IHASH()
+	_r     = IHASH()
+	_top   = IARRAY
+	_best  = ''
+	_c     = 0
+	_k     = 0
+
+	for _i = 0 ; _i < 24 ; _i++ {
+		_hour ,= 0
+	}
+	CCS.Init
+	if STRLEN(_path) > 0 && FSIZE(_path) > 0 && FOPEN(_path, 'r') {
+		_seek = CCS.MonthPos(CCS.KeyAdd(_from, -1) / 100)
+		if _seek[0] > 0 && _seek[0] < FSIZE(_path) {
+			void FSEEK(_path, _seek[0], 'SEEK_SET')
+			_check = _seek[1]
+		}
+		while 1 {
+			_pos  = FTELL(_path)
+			_line = FREAD(_path)
+			if _line == -1 {
+				break
+			}
+			_i = STRSTR(_line, '"timestamp":', 0)
+			if _i < 0 {
+				continue
+			}
+			_ms = TOINT(SUBSTR(_line, _i + 12, 20))
+			if _ms <= 0 {
+				continue
+			}
+			_key = CCS.DayKey(_ms / 1000)
+			_m   = _key / 100
+
+			//---- 索引で飛んだ先がその月の頭でなければ、索引を捨てて頭から読み直す
+			if _check > 0 {
+				if _m != _check {
+					ccshmpos = IHASH()
+					_prevm   = 0
+					void FSEEK(_path, 0, 'SEEK_SET')
+					_check = 0
+					continue
+				}
+				_check = 0
+				_prevm = _m
+			}
+			//---- 月の頭の行の位置を覚える（頭から読んだか、前の月から読み続けたときだけ）
+			if _m > _prevm {
+				if (_prevm > 0 || _pos == 0) && !HASH_EXIST(ccshmpos, TOSTR(_m)) {
+					ccshmpos[TOSTR(_m)] = _pos
+				}
+				_prevm = _m
+			}
+
+			if _key > _stop {
+				break
+			}
+			if _key < _from || _key > _to {
+				continue
+			}
+			_n += 1
+			if _key != _daykey {
+				_days  += 1
+				_daykey = _key
+				_dayn   = 0
+			}
+			_dayn += 1
+			if _dayn > _max {
+				_max    = _dayn
+				_maxkey = _key
+			}
+			_t = GETTIME(_ms / 1000)
+			_hour[_t[4]] += 1
+			if _t[4] <= 4 {
+				_late += 1
+			}
+			//---- 作業フォルダも文字列のまま拾う（JSON を解くと 1 年分で 1 秒ほどかかるため）
+			//---- 円記号は \\ と重なったままだが、CC.ProjectName は最後の区切りの後ろだけを取るので同じ名前になる
+			_name = ''
+			_i    = STRSTR(_line, '"project":"', 0)
+			if _i >= 0 {
+				_j    = STRSTR(_line, '"', _i + 11)
+				_name = CC.Label('', SUBSTR(_line, _i + 11, _j - _i - 11))
+			}
+			if STRLEN(_name) > 0 {
+				_proj[_name] = TOINT(_proj[_name]) + 1
+			}
+		}
+		void FCLOSE(_path)
+	}
+
+	_r = IHASH('n', _n, 'days', _days, 'max', _max, 'maxkey', _maxkey, 'late', _late, 'peak', -1, 'lands', HASH_SIZE(_proj))
+	for _i = 0 ; _i < 24 ; _i++ {
+		if _hour[_i] > 0 && (_r['peak'] < 0 || _hour[_i] > _hour[_r['peak']]) {
+			_r['peak'] = _i
+		}
+	}
+	//---- 依頼の多い作業フォルダを 3 つまで
+	for _k = 0 ; _k < 3 ; _k++ {
+		_best = ''
+		_c    = 0
+		foreach _proj ; _name, _i {
+			if ASEARCH(_name, _top) < 0 && _i > _c {
+				_best = _name
+				_c    = _i
+			}
+		}
+		if _c > 0 {
+			_top ,= _best
+		}
+		_r['p' + _k] = _best
+		_r['c' + _k] = _c
+	}
+	_r
+}
+
+//------------------------------------------------------------------------------
+//期間のうち、わたくしどもが見届けた数を合わせる（日ごとの記録 ccsdlog と本日の分）
+//  _argv[0] 始まり / _argv[1] 終わり（業務日の番号）
+//  配列で (返事待ちに応えた, 大仕事の完了, 働いた秒数, 作業した秒数, セッション)
+//------------------------------------------------------------------------------
+CCS.SpanWatch
+{
+	_from = TOINT(_argv[0])
+	_to   = TOINT(_argv[1])
+	_sum  = (0, 0, 0, 0, 0)
+	_key  = ''
+	_v    = ''
+	_a    = IARRAY
+	_i    = 0
+
+	CCS.RollDay
+	foreach ccsdlog ; _key, _v {
+		if TOINT(_key) >= _from && TOINT(_key) <= _to {
+			_a = SPLIT(_v, ',')
+			for _i = 0 ; _i < 5 ; _i++ {
+				_sum[_i] += TOINT(_a[_i])
+			}
+		}
+	}
+	if ccsday >= _from && ccsday <= _to {
+		_sum[0] += ccsd_answer
+		_sum[1] += ccsd_done
+		_sum[2] += ccsd_busy
+		_sum[3] += ccsd_work
+		_sum[4] += ccsd_new
 	}
 	_sum
 }
@@ -923,13 +1263,14 @@ CCS.TalkThousand : nonoverlap
 
 
 //******************************************************************************
-//功績録と本日の業務報告（メニューから）
+//功績録（メニューから）
 //******************************************************************************
 
 //------------------------------------------------------------------------------
 //功績録。頁ごとに独立したトークで、上端の見出し（CCS.Tabs）から頁を自由に切り替える
-//  _argv[0] 頁の番号（1〜5）。省略するとメニューから開いたものとして数え、
-//           1 頁目（依頼の記録が無ければ 3 頁目）を出す
+//  1 報告（期間の業務報告）/ 2 依頼 / 3 領地 / 4 見届け / 5 称号 / 6 番外の称号
+//  _argv[0] 頁の番号（1〜6）。省略するとメニューから開いたものとして数え、
+//           本日の業務報告（1 頁目）を出す
 //           Claude Code が無い PC では、頁の代わりに CCS.PageNoClaude を出す
 //------------------------------------------------------------------------------
 CCS.Record
@@ -939,42 +1280,43 @@ CCS.Record
 
 	//---- 見出しから頁を開いたときも、保存した値の移し替え（CCS.Init）を済ませてから
 	CCS.Init
+	//---- 読み残しがあれば、ここで全部読む（本日の分を数えるため、頁を切り替えたときも）
+	if CCS.HistPending {
+		CCS.HistRead(100000)
+	}
 	if _argc > 0 {
 		_page = _argv[0]
 	}
 	else {
 		CCS.Count('record')
-		//---- 読み残しがあれば、ここで全部読む
-		if CCS.HistPending {
-			CCS.HistRead(100000)
-		}
 		if ccsbdone != 1 {
 			CCS.Backfill(100000)
 		}
 		if CCS.NoClaude {
 			return CCS.PageNoClaude
 		}
-		_page = 3
-		if ccshn > 0 {
-			_page = 1
-		}
+		ccsperiod = 'today'
+		_page     = 1
 	}
-	//---- 番外の称号が 1 つも無ければ、5 頁目は出さない
+	//---- 番外の称号が 1 つも無ければ、6 頁目は出さない
 	_odd = CCS.OddTitles
-	if _page == 5 && ARRAYSIZE(_odd) == 0 {
-		_page = 4
+	if _page == 6 && ARRAYSIZE(_odd) == 0 {
+		_page = 5
 	}
 	case _page {
 		when 1 {
-			CCS.PageHistory
+			CCS.PageReport
 		}
 		when 2 {
-			CCS.PageLand
+			CCS.PageHistory
 		}
 		when 3 {
+			CCS.PageLand
+		}
+		when 4 {
 			CCS.PageWatch
 		}
-		when 5 {
+		when 6 {
 			CCS.PageOddTitles
 		}
 		others {
@@ -984,11 +1326,11 @@ CCS.Record
 }
 
 //---- 頁の上端の見出し。今の頁は墨の太字で示し、ほかの頁は選択肢（深赤土）にする
-//  _argv[0] 今の頁の番号。選ぶと Menu_CCPAGE1〜5（yaya_menu.dic）が呼ばれる
+//  _argv[0] 今の頁の番号。選ぶと Menu_CCPAGE1〜6（yaya_menu.dic）が呼ばれる
 //  各頁は、見出しから表までを \_q の中で一度に出し、そのあとの掛け合いだけ間を取って話す
 CCS.Tabs
 {
-	_names = ('依頼', '領地', '見届け', '称号')
+	_names = ('報告', '依頼', '領地', '見届け', '称号')
 	_odd   = CCS.OddTitles
 	_i     = 0
 	_name  = ''
@@ -1048,23 +1390,23 @@ CCS.PageNoClaude
 	_talk
 }
 
-//---- 1・2 頁目で、依頼の記録が見つからないとき
+//---- 2・3 頁目で、依頼の記録が見つからないとき
 //  _argv[0] 頁の番号
 CCS.PageNoHistory
 {
 	'\u\s[10]\0\s[3]\b[2]\_q' + CCS.Tabs(_argv[0]) + 'Claude Code の依頼の記録が\n見つかりませんわ。\_q\w8\1わたくしどもで数えた分は、\w9\n「見届け」の頁にございます。'
 }
 
-//---- 1 頁目: 依頼の記録
+//---- 2 頁目: 依頼の記録
 CCS.PageHistory
 {
 	_span = (GETSECCOUNT - ccshfirst) / 86400 + 1
 	_talk = ''
 
 	if ccshn == 0 {
-		return CCS.PageNoHistory(1)
+		return CCS.PageNoHistory(2)
 	}
-	_talk  = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(1) + 'あなたの功績録ですわ。\nとくとご覧なさい。\n\n'
+	_talk  = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(2) + 'あなたの功績録ですわ。\nとくとご覧なさい。\n\n'
 	_talk += '・記録の始まり　' + CCS.SecDate(ccshfirst) + '\n'
 	_talk += '・登城した日　' + CCS.Comma(ccshdays) + '日（' + CCS.Comma(_span) + '日のうち）\n'
 	_talk += '・依頼　' + CCS.Comma(ccshn) + '件\n'
@@ -1079,7 +1421,7 @@ CCS.PageHistory
 	_talk
 }
 
-//---- 2 頁目: 領地と時刻
+//---- 3 頁目: 領地と時刻
 CCS.PageLand
 {
 	_top  = IHASH()
@@ -1088,12 +1430,12 @@ CCS.PageLand
 	_talk = ''
 
 	if ccshn == 0 {
-		return CCS.PageNoHistory(2)
+		return CCS.PageNoHistory(3)
 	}
 	_top  = CCS.TopProject
 	_peak = CCS.PeakHour
 	_late = CCS.HourSum(0, 4)
-	_talk  = '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(2) + '治めた領地と、働く時刻ですわ。\n\n'
+	_talk  = '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(3) + '治めた領地と、働く時刻ですわ。\n\n'
 	_talk += '・治めた領地　' + HASH_SIZE(ccshproj) + 'か所\n'
 	if HASH_SIZE(_top) > 0 {
 		_talk += '・いちばんの領地　' + _top['name'] + '（' + CCS.Comma(_top['count']) + '件）\n'
@@ -1113,16 +1455,16 @@ CCS.PageLand
 	_talk
 }
 
-//---- 3 頁目: わたくしどもが見届けた分
+//---- 4 頁目: わたくしどもが見届けた分
 CCS.PageWatch
 {
 	_talk = ''
 
 	CCS.Init
 	if ccsanswer + ccsdone + ccsbusy + ccsnew == 0 {
-		return '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(3) + 'わたくしどもが見届けた分は、\nまだこれからですわ。\_q\w8\1記録は' + CCS.SecDate(ccssince) + 'より\w9\nつけ始めております。'
+		return '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(4) + 'わたくしどもが見届けた分は、\nまだこれからですわ。\_q\w8\1記録は' + CCS.SecDate(ccssince) + 'より\w9\nつけ始めております。'
 	}
-	_talk  = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(3) + 'わたくしどもが見届けた分ですわ。\n' + CCS.SecDate(ccssince) + 'から数えていますの。\n\n'
+	_talk  = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(4) + 'わたくしどもが見届けた分ですわ。\n' + CCS.SecDate(ccssince) + 'から数えていますの。\n\n'
 	_talk += '・返事待ちに応えた　' + CCS.Comma(ccsanswer) + '回\n'
 	_talk += '・大仕事の完了（1分半以上）　' + CCS.Comma(ccsdone) + '回\n'
 	_talk += '・10分を超える長考　' + CCS.Comma(ccslong) + '回\n'
@@ -1139,7 +1481,7 @@ CCS.PageWatch
 	_talk
 }
 
-//---- 4 頁目: 称号
+//---- 5 頁目: 称号
 CCS.PageTitles
 {
 	_list = CCS.Titles
@@ -1147,9 +1489,9 @@ CCS.PageTitles
 	_talk = ''
 
 	if ARRAYSIZE(_list) == 0 {
-		return '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(4) + '称号は、まだございませんわね。\nこれからの働きに期待しますわ。\_q\w8\1精進でございます。'
+		return '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(5) + '称号は、まだございませんわね。\nこれからの働きに期待しますわ。\_q\w8\1精進でございます。'
 	}
-	_talk = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(4) + '以上の功績をもって、\n次の称号を授けますわ。\n\n'
+	_talk = '\u\s[10]\0\s[26]\b[2]\_q' + CCS.Tabs(5) + '以上の功績をもって、\n次の称号を授けますわ。\n\n'
 	foreach _list ; _t {
 		_talk += '「' + _t['name'] + '」\n'
 	}
@@ -1163,14 +1505,14 @@ CCS.PageTitles
 	_talk
 }
 
-//---- 5 頁目: 番外の称号（1 つも無ければ頁ごと出さない）
+//---- 6 頁目: 番外の称号（1 つも無ければ頁ごと出さない）
 CCS.PageOddTitles
 {
 	_list = CCS.OddTitles
 	_t    = IHASH()
 	_talk = ''
 
-	_talk = '\u\s[10]\0\s[7]\b[2]\_q' + CCS.Tabs(5) + '‥‥アンソニーが記録帳の余白に\n妙なものを書いていましたわ。\n\n'
+	_talk = '\u\s[10]\0\s[7]\b[2]\_q' + CCS.Tabs(6) + '‥‥アンソニーが記録帳の余白に\n妙なものを書いていましたわ。\n\n'
 	foreach _list ; _t {
 		_talk += '「' + _t['name'] + '」\n'
 	}
@@ -1178,42 +1520,160 @@ CCS.PageOddTitles
 	_talk
 }
 
-//------------------------------------------------------------------------------
-//本日の業務報告
-//------------------------------------------------------------------------------
-CCS.Today.Report
+//---- 1 頁目の、見出しの下の期間の切り替え。今の期間は太字、ほかは選択肢にする
+//  _argv[0] 今の期間の ID。選ぶと OnCCSPeriod（yaya_menu.dic）が呼ばれる
+//  指定した期間を見ているときの選び直しは、見出しの横の選択肢から（CCS.PageReport）
+CCS.PeriodBar
 {
-	_n    = 0
-	_talk = ''
+	_ids   = CCS.PeriodIDs
+	_names = CCS.PeriodNames
+	_i     = 0
+	_id    = ''
+	_talk  = ''
+
+	foreach _ids ; _i, _id {
+		if _i > 0 {
+			_talk += '・'
+		}
+		if _id == _argv[0] {
+			_talk += '\f[bold,1]' + _names[_i] + '\f[default]'
+		}
+		else {
+			_talk += '\q[' + _names[_i] + ',OnCCSPeriod,' + _id + ']'
+		}
+	}
+	_talk + '\n'
+}
+
+//------------------------------------------------------------------------------
+//1 頁目: 業務報告。ccsperiod の期間について、依頼の履歴を読み直して数え、
+//見届けた数は日ごとの記録（ccsdlog）から合わせる
+//------------------------------------------------------------------------------
+CCS.PageReport
+{
+	_id    = ccsperiod
+	_ids   = CCS.PeriodIDs
+	_range = IARRAY
+	_from  = 0
+	_to    = 0
+	_today = CCS.Today
+	_r     = IHASH()
+	_w     = IARRAY
+	_span  = 0
+	_n     = 0
+	_name  = ''
+	_year  = 0
+	_avg   = 0
+	_all   = 0
+	_k     = 0
+	_talk  = ''
 
 	CCS.RollDay
-	if CCS.HistPending {
-		CCS.HistRead(100000)
+	if ASEARCH(_id, _ids) < 0 {
+		_id = 'today'
 	}
-	_n = CCS.TodayRequests
+	_range = CCS.PeriodRange(_id)
+	_from  = _range[0]
+	_to    = _range[1]
+	_span  = CCS.KeyDays(_from, _to)
+	_r     = CCS.Span(_from, _to)
+	_w     = CCS.SpanWatch(_from, _to)
+	_n     = _r['n']
+	_name  = CCS.PeriodNames
+	_name  = _name[ASEARCH(_id, _ids)]
 
-	_talk  = '\u\s[10]\0\s[0]\b[2]本日の業務報告ですわ。\w8\n\n\_q'
-	_talk += '・依頼　' + CCS.Comma(_n) + '件\n'
-	_talk += '・開いたセッション　' + CCS.Comma(ccsd_new) + '\n'
-	_talk += '・Claude が働いた時間　' + CC.Duration(ccsd_busy) + '\n'
-	_talk += '・大仕事の完了　' + CCS.Comma(ccsd_done) + '回\n'
-	_talk += '・返事待ちに応えた　' + CCS.Comma(ccsd_answer) + '回\n'
-	_talk += '・作業していた時間　' + CC.Duration(ccsd_work) + '\_q\w8'
-
-	if _n == 0 && ccsd_busy == 0 {
-		_talk += '\0\s[6]\n\n本日はまだ、何もしておりませんのね。\w8\1嵐の前の静けさでございます。'
-	}
-	elseif _n >= 10 && _n == ccshdaymax {
-		_talk += '\0\s[5]\n\nおーっほっほっほ！\w9\n一日の最多記録ですわよ！\w8\1記録帳を書き換えておきます。'
-	}
-	elseif _n >= 100 {
-		_talk += '\0\s[2]\n\n百件を超えましたの！？\w9\n見事ですけれど、働きすぎですわ。\w8\1' + tea + 'を濃いめにお淹れいたします。'
-	}
-	elseif _n >= 20 {
-		_talk += '\0\s[25]\n\nよく働きましたこと。\w9\n褒めて差し上げますわ。\w8\1お疲れさまでございます。'
+	//---- 見出しと期間
+	//---- 吹き出し（24 行）に選択肢まで収まるよう、期間の選択肢の下は半行だけ空ける
+	_talk  = '\u\s[10]\0\s[0]\b[2]\_q' + CCS.Tabs(1) + CCS.PeriodBar(_id) + '\n[half]'
+	if _id == 'custom' {
+		_talk += '\f[color,140,59,31]\f[bold,1]◆ 指定した期間の業務報告\f[default]　\q[選び直す,OnCCSPeriod,custom]\n'
 	}
 	else {
-		_talk += '\0\s[0]\n\nほどほどの一日ですわね。\w8\1無理のない働き方は、\w9\n長続きいたします。'
+		_talk += '\f[color,140,59,31]\f[bold,1]◆ ' + _name + 'の業務報告\f[default]\n'
+	}
+	//---- 今年でない日が入るときは、年を書く（曜日は書かない）
+	_year = (_from / 10000 != _today / 10000 || _to / 10000 != _today / 10000)
+	_talk += '\f[color,107,78,61]' + CCS.KeyText(_from, _year)
+	if _to != _from {
+		_talk += '〜' + CCS.KeyText(_to, _year)
+	}
+	_talk += '\f[default]\n\n'
+
+	//---- 依頼の履歴から
+	if _span == 1 {
+		_talk += '・依頼　' + CCS.Comma(_n) + '件\n'
+	}
+	else {
+		_talk += '・依頼　' + CCS.Comma(_n) + '件（' + CCS.Comma(_span) + '日のうち' + CCS.Comma(_r['days']) + '日登城）\n'
+		if _n > 0 {
+			_talk += '・一日の最多　' + CCS.Comma(_r['max']) + '件（' + CCS.KeyText(_r['maxkey'], 2 - _year) + '）\n'
+		}
+	}
+	if _n > 0 {
+		_talk += '・よく働く時刻　' + _r['peak'] + '時台（深夜 ' + CCS.Comma(_r['late']) + '件）\n'
+		_talk += '・治めた領地　' + _r['lands'] + 'か所\n'
+		for _k = 0 ; _k < 3 ; _k++ {
+			if _r['c' + _k] > 0 {
+				_talk += '　' + SHIORI3FW.MakeShortText(_r['p' + _k], 30) + '　' + CCS.Comma(_r['c' + _k]) + '件\n'
+			}
+		}
+	}
+	//---- わたくしどもが見届けた分。日ごとの記録が始まる前だけの期間では出さない
+	if _to < ccsdlogsince {
+		_talk += '\f[color,107,78,61]（Claude の働きぶりは、' + CCS.KeyText(ccsdlogsince, 1) + 'から記録）\f[default]'
+	}
+	else {
+		_talk += '・Claude が働いた時間　' + CC.Duration(_w[2]) + '\n'
+		_talk += '・作業していた時間　' + CC.Duration(_w[3]) + '\n'
+		_talk += '・セッション ' + CCS.Comma(_w[4]) + '・大仕事 ' + CCS.Comma(_w[1]) + '回・返事待ち ' + CCS.Comma(_w[0]) + '回'
+		if _from < ccsdlogsince {
+			_talk += '\n\f[color,107,78,61]（働いた時間から下は、' + CCS.KeyText(ccsdlogsince, 2 - _year) + 'からの分）\f[default]'
+		}
+	}
+	_talk += '\_q\w8'
+
+	//---- ひとこと
+	if _n == 0 && _w[2] == 0 {
+		if _id == 'today' {
+			_talk += '\0\s[6]\n\n本日はまだ、何もしておりませんのね。\w8\1嵐の前の静けさでございます。'
+		}
+		else {
+			_talk += '\0\s[0]\n\nこの間は、お休みでしたのね。\w8\1骨休めも、お仕事のうちでございます。'
+		}
+	}
+	elseif _id == 'today' && _n >= 10 && _n == ccshdaymax {
+		_talk += '\0\s[5]\n\nおーっほっほっほ！\w9\n一日の最多記録ですわよ！\w8\1記録帳を書き換えておきます。'
+	}
+	elseif _n >= 10 && _r['late'] * 4 >= _n {
+		_talk += '\0\s[7]\n\n深夜の依頼が多すぎましてよ。\w9\n夜は眠るものですわ。\w8\1念のため、褒めてはおりません。'
+	}
+	elseif _span == 1 {
+		if _n >= 100 {
+			_talk += '\0\s[2]\n\n百件を超えましたの！？\w9\n見事ですけれど、働きすぎですわ。\w8\1' + tea + 'を濃いめにお淹れいたします。'
+		}
+		elseif _n >= 20 {
+			_talk += '\0\s[25]\n\nよく働きましたこと。\w9\n褒めて差し上げますわ。\w8\1お疲れさまでございます。'
+		}
+		else {
+			_talk += '\0\s[0]\n\nほどほどの一日ですわね。\w8\1無理のない働き方は、\w9\n長続きいたします。'
+		}
+	}
+	elseif _r['days'] == 0 || ccshdays == 0 {
+		_talk += '\0\s[0]\n\n依頼はなくとも、\w9\nClaude は働いていましたのね。\w8\1記録しておきます。'
+	}
+	else {
+		//---- 登城した日の一日あたりを、これまで全体と比べる
+		_avg = _n / _r['days']
+		_all = ccshn / ccshdays
+		if _avg * 2 >= _all * 3 {
+			_talk += '\0\s[2]\n\nいつもより、ずいぶん\w9\n精が出ましたのね。\w8\1登城した日は一日あたり' + _avg + '件。\w9\nふだんは' + _all + '件でございます。'
+		}
+		elseif _avg * 2 <= _all {
+			_talk += '\0\s[0]\n\nいつもより、ゆったりした\w9\n日々でしたわね。\w8\1登城した日は一日あたり' + _avg + '件。\w9\nふだんは' + _all + '件でございます。'
+		}
+		else {
+			_talk += '\0\s[26]\n\nいつもどおりの働きぶりですわ。\w9\n結構ですこと。\w8\1一日あたり' + _avg + '件でございます。'
+		}
 	}
 	_talk
 }
