@@ -19,9 +19,9 @@ collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
 
 animation0.interval,sometimes
 animation0.pattern0,overlay,1001,0,0,0
-animation0.pattern1,overlay,1000,50,0,0
+animation0.pattern1,overlay,1000,30,0,0
 animation0.pattern2,overlay,1001,50,0,0
-animation0.pattern3,overlay,-1,50,0,0
+animation0.pattern3,overlay,-1,80,0,0
 }
 
 surface1
@@ -128,9 +128,9 @@ collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
 
 animation0.interval,sometimes
 animation0.pattern0,overlay,1701,0,0,0
-animation0.pattern1,overlay,1700,50,0,0
+animation0.pattern1,overlay,1700,30,0,0
 animation0.pattern2,overlay,1701,50,0,0
-animation0.pattern3,overlay,-1,50,0,0
+animation0.pattern3,overlay,-1,80,0,0
 }
 
 surface8
@@ -163,9 +163,9 @@ collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
 
 animation0.interval,sometimes
 animation0.pattern0,overlay,1701,0,0,0
-animation0.pattern1,overlay,1700,50,0,0
+animation0.pattern1,overlay,1700,30,0,0
 animation0.pattern2,overlay,1701,50,0,0
-animation0.pattern3,overlay,-1,50,0,0
+animation0.pattern3,overlay,-1,80,0,0
 
 animation9999.interval,runonce
 animation9999.pattern0,overlay,1910,0,0,0
@@ -214,6 +214,34 @@ collisionex5,Hair,rect,200,138,250,206
 collisionex6,Foot,ellipse,142,472,163,494
 collisionex7,Foot,ellipse,163,472,184,494
 collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
+}
+
+surface28
+{
+element0,base,surface0.png,0,0
+
+collisionex0,Fan,polygon,212,209,250,206,280,222,287,243,235,256
+collisionex1,Head,rect,106,31,225,108
+collisionex2,Face,rect,125,110,206,165
+collisionex3,Bust,rect,131,188,200,238
+collisionex4,Hair,rect,69,138,125,288
+collisionex5,Hair,rect,200,138,250,206
+collisionex6,Foot,ellipse,142,472,163,494
+collisionex7,Foot,ellipse,163,472,184,494
+collisionex8,Skirt,polygon,54,400,267,400,290,446,265,472,60,472,35,444
+
+animation0.interval,sometimes
+animation0.pattern0,overlay,1001,0,0,0
+animation0.pattern1,overlay,1000,30,0,0
+animation0.pattern2,overlay,1001,50,0,0
+animation0.pattern3,overlay,-1,80,0,0
+
+animation100.interval,runonce
+animation100.option,exclusive
+animation100.pattern0,base,1010,100,0,0
+animation100.pattern1,base,1011,150,0,0
+animation100.pattern2,base,1010,1200,0,0
+animation100.pattern3,base,-1,150,0,0
 }
 
 surface29

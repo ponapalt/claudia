@@ -94,7 +94,7 @@ TalkToUser
 {
 	//上から順に見て、最初に当てはまったものに返事する
 	if 'こんにちは' _in_ reference[1] || 'ごきげんよう' _in_ reference[1]{
-		'\0\s[0]ごきげんよう。\e'
+		'\0\s[28]ごきげんよう。\e'
 	}
 	elseif RE_SEARCH(reference[1], 'おはよう'){
 		if hour >= 4 && hour <= 11 {
