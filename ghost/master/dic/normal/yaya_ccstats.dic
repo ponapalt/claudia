@@ -1033,7 +1033,7 @@ CCS.PageNoClaude
 {
 	_list = CCS.OddTitles
 	_t    = IHASH()
-	_talk = '\u\s[10]\0\s[4]\b[2]あら、この館には Claude Code が\w9\n見当たりませんわね。\w8'
+	_talk = '\u\s[10]\0\s[3]\b[2]あら、この館には Claude Code が\w9\n見当たりませんわね。\w8'
 
 	if ARRAYSIZE(_list) == 0 {
 		_talk += '\1功績録は、Claude Code での\w9\nお働きを記す帳面でございます。\w8\0\s[0]\n\nお使いになる日が来たら、\w9\nわたくしどもが記録して差し上げますわ。'
@@ -1052,7 +1052,7 @@ CCS.PageNoClaude
 //  _argv[0] 頁の番号
 CCS.PageNoHistory
 {
-	'\u\s[10]\0\s[4]\b[2]\_q' + CCS.Tabs(_argv[0]) + 'Claude Code の依頼の記録が\n見つかりませんわ。\_q\w8\1わたくしどもで数えた分は、\w9\n「見届け」の頁にございます。'
+	'\u\s[10]\0\s[3]\b[2]\_q' + CCS.Tabs(_argv[0]) + 'Claude Code の依頼の記録が\n見つかりませんわ。\_q\w8\1わたくしどもで数えた分は、\w9\n「見届け」の頁にございます。'
 }
 
 //---- 1 頁目: 依頼の記録

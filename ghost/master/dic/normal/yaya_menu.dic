@@ -177,7 +177,7 @@ OPENMENU.Body
 OnChoiceTimeout
 {
 	'\0\s[7]早くお選びなさい。\w9\n令嬢を待たせるものではありませんわ。\e'
-	'\0\s[4]‥\w5‥\w5呼んでおいて、だんまりですの？\w8\1お嬢様、そういう日もございます。\e'
+	'\0\s[3]‥\w5‥\w5呼んでおいて、だんまりですの？\w8\1お嬢様、そういう日もございます。\e'
 }
 
 
@@ -302,7 +302,7 @@ OnInputUserName
 	_name = reference[0]
 
 	if STRLEN(_name) == 0 {
-		'\0\s[4]空欄では、お呼びできませんわ。'
+		'\0\s[3]空欄では、お呼びできませんわ。'
 	}
 	elseif SHIORI3FW.EscapeAllTags(_name) != _name {
 		'\0\s[7]おかしな記号はおやめなさい。'
@@ -524,7 +524,7 @@ Menu_CCCLOSE
 Menu_CCWATCH
 {
 	if !CC.HasSessionDir {
-		'\u\s[10]\0\s[4]Claude Code のセッションの置き場所が\w9\n見当たりませんわ。\w8\1まだお入れでないのかと。\e'
+		'\u\s[10]\0\s[3]Claude Code のセッションの置き場所が\w9\n見当たりませんわ。\w8\1まだお入れでないのかと。\e'
 	}
 	else {
 		CC.Start
