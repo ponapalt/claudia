@@ -104,6 +104,14 @@ MENU.CCInfo
 	'・待ち ' + _argv[0] + '・手すき ' + (_argv[2] - _argv[0] - _argv[1])
 }
 
+//---- Claude Code の履歴の頁の情報バーの中身。「17:48 現在　履歴 492件・1/82頁」
+//  _argv[0] 続きを開ける履歴の数 / _argv[1] 今の頁 / _argv[2] 頁の数
+MENU.HistInfo
+{
+	_t = GETTIME
+	_t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + ' 現在　履歴 ' + CCS.Comma(_argv[0]) + '件・' + _argv[1] + '/' + _argv[2] + '頁'
+}
+
 //---- 設定メニューの情報バーの中身。「話す頻度：ふつう・呼び名：あなた」
 MENU.ConfigInfo
 {
@@ -160,8 +168,8 @@ OPENMENU.Body
 	_items ,= 'ゴーストと話す|Menu_GHOSTCOMSTART'
 	_items ,= '功績録と業務報告|Menu_CCSTATS'
 	_items ,= 'お茶とタイマー|Menu_TIMER'
-	//---- Claude Code が動いているときだけ見せる
-	if ARRAYSIZE(_list) > 0 {
+	//---- Claude Code を使っている PC なら、動いていなくても見せる（実行中と履歴）
+	if !CCS.NoClaude {
 		_items ,= 'Claude Code は？|Menu_CLAUDECODE'
 	}
 	_items ,= '設定|Menu_CONFIG'
@@ -411,36 +419,29 @@ Menu_GHOSTCOMSTART
 	StartCommunicate
 }
 
-//---- Claude Code の様子（起動中のセッション一覧）
-//  セッションの一覧（CC.Scan）はファイルを読むので、一覧と情報バーで 1 回の結果を使う
+//---- Claude Code は？（実行中と履歴の 2 頁。見出しから切り替える。yaya_claudecode.dic）
+//  実行中: 起動中のセッションの一覧。動いていなければ空欄のひとこと
 Menu_CLAUDECODE
 {
-	_list = CC.Scan
-	_n    = ARRAYSIZE(_list)
-	_wait = 0
-	_busy = 0
-	_s    = IHASH()
+	CC.PageRun
+}
 
-	if _n == 0 {
-		return '\0\s[4]もう誰も働いておりませんわ。\e'
-	}
-	foreach _list ; _s {
-		if _s['status'] == 'waiting' {
-			_wait += 1
-		}
-		elseif _s['status'] == 'busy' {
-			_busy += 1
-		}
-	}
-	//---- 一覧は長くなるので大きいバルーン（\b[2]）で出す。一覧は \_q で一度に出し、
-	//     アンソニーのひとことのあと、選択肢から情報バーまでを \_q で一度に出す
-	//---- 本文には記録から拾った文字が入るので、%() で展開せずにつなぐ
-	_talk  = '\u\s[10]\0\s[26]\b[2]ご覧なさい。\w9\n今、これだけ動いておりましてよ。\w8\n\n[half]'
-	_talk += '\_q' + CC.ListBody(_list) + '\_q'
-	_talk += '\w8\1' + CC.ListButler(_wait, _busy, _n) + '\w8\0\n\n[half]'
-	_talk += '\_q' + MENU.Grid('もう一度見る|Menu_CLAUDECODE', '見張りを立て直す|Menu_CCWATCH', '戻る|OpenMenu')
-	_talk += '\n' + MENU.InfoBar(MENU.CCInfo(_wait, _busy, _n)) + '\_q'
-	_talk
+//---- 履歴: これまでのセッションから選んで、続きを端末で開く
+Menu_CCHIST
+{
+	CC.PageHist(1)
+}
+
+//---- 履歴の頁送り（\q の 3 番目の引数が頁の番号）
+OnCCHistPage
+{
+	CC.PageHist(TOINT(reference[0]))
+}
+
+//---- 履歴から選んだセッションを開く（reference[0] が sessionId）
+OnCCResume
+{
+	CC.Resume(reference[0])
 }
 
 //---- 功績録（yaya_ccstats.dic）。メニューから開くと本日の業務報告（1 頁目）を出し、回数を数える

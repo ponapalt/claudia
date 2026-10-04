@@ -337,7 +337,8 @@ CC.TranscriptPath
 //------------------------------------------------------------------------------
 //会話の記録の末尾 256KB を読む
 //  _argv[0] cwd / _argv[1] sessionId
-//  戻り値  ハッシュ。last 最後のメッセージ（user か assistant）の行 / title 題名
+//  戻り値  ハッシュ。last 最後のメッセージ（user か assistant）の行 / title 題名 /
+//          agent セッションの呼び名（claudia-8d など。履歴の一覧で題名の代わりにする）
 //          わからないものは空文字列
 //題名が見つかれば cctitle にも覚える
 //------------------------------------------------------------------------------
@@ -348,6 +349,7 @@ CC.ReadTail
 	_line  = ''
 	_last  = ''
 	_title = ''
+	_agent = ''
 	_h     = IHASH()
 
 	if _size <= 0 {
@@ -375,10 +377,16 @@ CC.ReadTail
 				_title = _h['aiTitle']
 			}
 		}
+		elseif STRSTR(_line, '"type":"agent-name"', 0) >= 0 {
+			_h = CC.ParseJSON(_line)
+			if _h['type'] == 'agent-name' && STRLEN(_h['agentName']) > 0 {
+				_agent = _h['agentName']
+			}
+		}
 	}
 	void FCLOSE(_path)
 	CC.SetTitle(_argv[1], _title)
-	IHASH('last', _last, 'title', _title)
+	IHASH('last', _last, 'title', _title, 'agent', _agent)
 }
 
 //------------------------------------------------------------------------------
@@ -1627,6 +1635,357 @@ CC.ListButler
 		'手すきの方も\w9\nおいでのようでございます。'
 		'次のご用命をお待ちの方も\w9\nおいででございます。'
 	}
+}
+
+
+//******************************************************************************
+//「Claude Code は？」の頁（実行中と履歴）
+//
+//メニューの「Claude Code は？」は、実行中でなくても開ける。上端の見出しで 2 つの頁を切り替える。
+//  実行中  今動いているセッションの一覧（CC.PageRun）。1 つも無ければ空欄のひとこと
+//  履歴    これまでのセッションから選んで、続きを端末で開く（CC.PageHist）
+//
+//履歴は、依頼の履歴 %USERPROFILE%\.claude\history.jsonl（功績録と同じファイル）を
+//末尾から読んで、sessionId ごとに最後の依頼の時刻と作業フォルダ（project）を拾う（CC.HistScan）。
+//Claude Code は会話の記録を一定の期間（既定で約 30 日）で片付けるので、
+//履歴にあっても記録（CC.TranscriptPath）が無いセッションは claude -r で開けない。
+//一覧には、記録が残っているものだけを出す（CC.HistList）。題名は記録の末尾から拾う（CC.ReadTail）。
+//
+//選ぶと OnCCResume（yaya_menu.dic）が呼ばれ、CC.Resume が作業フォルダを cwd にして
+//claude -r <sessionId> を EXECUTE（第 3 引数の作業フォルダは Tc604-1 から）で開く。
+//claude を拡張子なしで呼ぶのは、claude.exe 以外の入り口（他の OS）でも動くようにするため。
+//EXECUTE はコンソールの見せ方を指定できないので、窓は既定の端末で開く。
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//頁の上端の見出し。今の頁は太字、もう一方は選択肢にする
+//  _argv[0] 今の頁（1 実行中 / 2 履歴）
+//------------------------------------------------------------------------------
+CC.Tabs
+{
+	_names = ('実行中', '履歴')
+	_ids   = ('Menu_CLAUDECODE', 'Menu_CCHIST')
+	_i     = 0
+	_name  = ''
+	_talk  = ''
+
+	foreach _names ; _i, _name {
+		if _i > 0 {
+			_talk += '｜'
+		}
+		if _i + 1 == _argv[0] {
+			_talk += '\f[bold,1]' + _name + '\f[default]'
+		}
+		else {
+			_talk += '\q[' + _name + ',' + _ids[_i] + ']'
+		}
+	}
+	_talk + '\n\f[align,center]―― ◇ ――\n\f[align,left]'
+}
+
+//------------------------------------------------------------------------------
+//頁の下に付ける選択肢と情報バー。最後はアンソニーが話しているので、クローディアに戻って出す
+//  _argv[0] 二段組みの選択肢（MENU.Grid の結果）/ _argv[1] 情報バーの中身
+//------------------------------------------------------------------------------
+CC.PageBottom
+{
+	'\w8\0\n\n[half]\_q' + _argv[0] + '\n' + MENU.InfoBar(_argv[1]) + '\_q'
+}
+
+//------------------------------------------------------------------------------
+//実行中の頁。一覧は \_q で一度に出し、アンソニーのひとことのあとに選択肢と情報バーを出す
+//  セッションの一覧（CC.Scan）はファイルを読むので、一覧と情報バーで 1 回の結果を使う
+//  本文には記録から拾った文字が入るので、%() で展開せずにつなぐ
+//------------------------------------------------------------------------------
+CC.PageRun
+{
+	_list = CC.Scan
+	_n    = ARRAYSIZE(_list)
+	_wait = 0
+	_busy = 0
+	_s    = IHASH()
+	_talk = ''
+
+	foreach _list ; _s {
+		if _s['status'] == 'waiting' {
+			_wait += 1
+		}
+		elseif _s['status'] == 'busy' {
+			_busy += 1
+		}
+	}
+	if _n == 0 {
+		_talk  = '\u\s[10]\0\s[4]\b[2]\_q' + CC.Tabs(1) + 'もう誰も働いておりませんわ。\_q'
+		_talk += '\w8\1手すきのときは、\w9\n「履歴」から続きを開けますが。'
+	}
+	else {
+		//---- 一覧は長くなるので大きいバルーン（\b[2]）で出す
+		_talk  = '\u\s[10]\0\s[26]\b[2]\_q' + CC.Tabs(1) + 'ご覧なさい。今、これだけ動いておりましてよ。\n\n[half]'
+		_talk += CC.ListBody(_list) + '\_q'
+		_talk += '\w8\1' + CC.ListButler(_wait, _busy, _n)
+	}
+	_talk + CC.PageBottom(MENU.Grid('もう一度見る|Menu_CLAUDECODE', '見張りを立て直す|Menu_CCWATCH', '戻る|OpenMenu'), MENU.CCInfo(_wait, _busy, _n))
+}
+
+//------------------------------------------------------------------------------
+//履歴の読み取り
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+//依頼の履歴（history.jsonl）の末尾から、セッションごとの最後の依頼の時刻と作業フォルダを拾う
+//  戻り値  ハッシュ。last sessionId → 最後の依頼の時刻（ミリ秒）のハッシュ /
+//          proj sessionId → 作業フォルダのハッシュ（円記号は JSON のまま \\ と重なっている）
+//  履歴は 3 MB ほどに育つので、末尾の 512KB から読み、約 60 日前の依頼に届かなければ倍にして
+//  読み直す（16MB まで）。JSON は解かず、文字列のまま拾う（CCS.Span と同じ）
+//------------------------------------------------------------------------------
+CC.HistScan
+{
+	_path  = CCS.HistPath
+	_size  = 0
+	_chunk = 524288
+	_want  = (GETSECCOUNT - 60 * 86400) * 1000
+	_from  = 0
+	_first = 0
+	_last  = IHASH()
+	_proj  = IHASH()
+	_line  = ''
+	_i     = 0
+	_j     = 0
+	_ms    = 0
+	_id    = ''
+	_cwd   = ''
+
+	if STRLEN(_path) > 0 {
+		_size = FSIZE(_path)
+	}
+	if _size <= 0 {
+		return IHASH('last', _last, 'proj', _proj)
+	}
+	while 1 {
+		_from  = _size - _chunk
+		_first = 0
+		_last  = IHASH()
+		_proj  = IHASH()
+		if _from < 0 {
+			_from = 0
+		}
+		if FOPEN(_path, 'r') {
+			if _from > 0 {
+				void FSEEK(_path, _from, 'SEEK_SET')
+				//---- 行の途中から読み始めるので、最初の 1 行は捨てる
+				_line = FREAD(_path)
+			}
+			while 1 {
+				_line = FREAD(_path)
+				if _line == -1 {
+					break
+				}
+				_i = STRSTR(_line, '"timestamp":', 0)
+				if _i < 0 {
+					continue
+				}
+				_ms = TOINT(SUBSTR(_line, _i + 12, 20))
+				_i  = STRSTR(_line, '"sessionId":"', 0)
+				if _ms <= 0 || _i < 0 {
+					continue
+				}
+				_id = SUBSTR(_line, _i + 13, 36)
+				_i  = STRSTR(_line, '"project":"', 0)
+				if _i < 0 {
+					continue
+				}
+				_j   = STRSTR(_line, '"', _i + 11)
+				_cwd = SUBSTR(_line, _i + 11, _j - _i - 11)
+				if _first == 0 {
+					_first = _ms
+				}
+				_last[_id] = _ms
+				_proj[_id] = _cwd
+			}
+			void FCLOSE(_path)
+		}
+		if _from == 0 || (_first > 0 && _first <= _want) || _chunk >= 16777216 {
+			break
+		}
+		_chunk *= 2
+	}
+	IHASH('last', _last, 'proj', _proj)
+}
+
+//------------------------------------------------------------------------------
+//作業フォルダの JSON の書き方（\\）を、ふつうの円記号 1 つに戻す
+//------------------------------------------------------------------------------
+CC.UnescapePath
+{
+	REPLACE(_argv[0], '\\', '\')
+}
+
+//------------------------------------------------------------------------------
+//続きを開けるセッションを、最後の依頼の新しい順に並べる（会話の記録が残っているものだけ）
+//  戻り値  ハッシュの配列。id sessionId / ts 最後の依頼の時刻（Unix 秒）/ cwd 作業フォルダ
+//------------------------------------------------------------------------------
+CC.HistList
+{
+	_scan = CC.HistScan
+	_last = _scan['last']
+	_proj = _scan['proj']
+	_keys = IARRAY
+	_list = IARRAY
+	_id   = ''
+	_ms   = 0
+	_k    = ''
+	_a    = IARRAY
+
+	foreach _last ; _id, _ms {
+		if FSIZE(CC.TranscriptPath(CC.UnescapePath(_proj[_id]), _id)) > 0 {
+			_keys ,= _ms + '|' + _id
+		}
+	}
+	if ARRAYSIZE(_keys) == 0 {
+		return _list
+	}
+	//---- 時刻は 13 桁そろっているので、文字列の降順で新しい順になる
+	_keys = ASORT('string,descending', _keys)
+	foreach _keys ; _k {
+		_a = SPLIT(_k, '|')
+		_list ,= IHASH('id', _a[1], 'ts', TOINT(_a[0]) / 1000, 'cwd', CC.UnescapePath(_proj[_a[1]]))
+	}
+	_list
+}
+
+//------------------------------------------------------------------------------
+//履歴の 1 件を 2 行で書く。最後の行に改行は付けない
+//  _argv[0] CC.HistList の 1 件 / _argv[1] 今も動いているなら 1
+//  1 行目は題名（無ければセッションの呼び名、作業フォルダの名前）。動いていなければ選択肢にする
+//  2 行目は最後の依頼の日時と作業フォルダ
+//------------------------------------------------------------------------------
+CC.HistRow
+{
+	_s    = _argv[0]
+	_tail = CC.ReadTail(_s['cwd'], _s['id'])
+	_name = CC.Label(_tail['agent'], _s['cwd'], _s['id'])
+	_t    = GETTIME(_s['ts'])
+	_row  = ''
+
+	if _argv[1] == 1 {
+		_row = '　' + SHIORI3FW.MakeShortText(_name, 32) + '（実行中）'
+	}
+	else {
+		_row = '\![*]\q[' + AYATEMPLATE.EscapeText(SHIORI3FW.MakeShortText(_name, 40)) + ',OnCCResume,' + _s['id'] + ']'
+	}
+	_row + '\n　' + _t[1] + '/' + _t[2] + ' ' + _t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + '　' + SHIORI3FW.MakeShortText(CC.Label('', _s['cwd']), 24)
+}
+
+//---- 履歴の頁のアンソニーのひとこと
+CC.HistButler : nonoverlap
+{
+	'古いものは Claude Code が\w9\n片付けてしまいますので、\w9\n残っている分だけでございます。'
+	'お選びになれば、\w9\nその作業フォルダで\w9\n続きを開きます。'
+}
+
+//------------------------------------------------------------------------------
+//履歴の頁。続きを開けるセッションを 6 件ずつ並べる
+//  _argv[0] 頁の番号（1 から。範囲を外れたら寄せる）
+//------------------------------------------------------------------------------
+CC.PageHist
+{
+	_per   = 6
+	_list  = CC.HistList
+	_total = ARRAYSIZE(_list)
+	_pages = (_total + _per - 1) / _per
+	_page  = TOINT(_argv[0])
+	_run   = IHASH()
+	_now   = CC.Scan
+	_s     = IHASH()
+	_row   = IHASH()
+	_i     = 0
+	_end   = 0
+	_prev  = ''
+	_next  = ''
+	_talk  = ''
+
+	if _page > _pages {
+		_page = _pages
+	}
+	if _page < 1 {
+		_page = 1
+	}
+	//---- 今動いているセッション（二重に開かないよう、選べなくする）
+	foreach _now ; _s {
+		_run[_s['sessionId']] = 1
+	}
+	if _total == 0 {
+		_talk  = '\u\s[10]\0\s[3]\b[2]\_q' + CC.Tabs(2) + '続きを開ける履歴が、\nまだございませんわ。\_q'
+		_talk += '\w8\1記録が残っているのは、\w9\nClaude Code が片付ける前の分だけでございます。'
+		return _talk + CC.PageBottom(MENU.Grid('戻る|OpenMenu'), MENU.HistInfo(0, 1, 1))
+	}
+	_talk = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(2) + 'どれの続きを開きますの？\n\n[half]'
+	_end  = _page * _per
+	if _end > _total {
+		_end = _total
+	}
+	for _i = (_page - 1) * _per ; _i < _end ; _i++ {
+		if _i > (_page - 1) * _per {
+			_talk += '\n'
+		}
+		_row   = _list[_i]
+		_talk += CC.HistRow(_row, TOINT(_run[_row['id']]))
+	}
+	_talk += '\_q\w8\1' + CC.HistButler
+	if _page > 1 {
+		_prev = '前の頁|OnCCHistPage|' + (_page - 1)
+	}
+	if _page < _pages {
+		_next = '次の頁|OnCCHistPage|' + (_page + 1)
+	}
+	_talk + CC.PageBottom(MENU.Grid(_prev, _next, '戻る|OpenMenu'), MENU.HistInfo(_total, _page, _pages))
+}
+
+//------------------------------------------------------------------------------
+//履歴から選んだセッションを、作業フォルダで claude -r で開く
+//  _argv[0] sessionId（履歴の一覧が出したもの）
+//  戻り値  トーク。開けなければ、その理由を話す
+//------------------------------------------------------------------------------
+CC.Resume
+{
+	_id    = _argv[0]
+	_scan  = IHASH()
+	_proj  = IHASH()
+	_now   = CC.Scan
+	_cwd   = ''
+	_attr  = IARRAY
+	_tail  = IHASH()
+	_name  = ''
+	_ret   = 0
+	_s     = IHASH()
+
+	//---- sessionId は履歴の一覧が出した UUID のはず。違う形のものは相手にしない
+	if STRLEN(_id) != 36 || STRLEN(RE_REPLACE(_id, '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', '')) > 0 {
+		return '\u\s[10]\0\s[3]その記録は見当たりませんわ。\w8\1お選び直しくださいませ。\e'
+	}
+	foreach _now ; _s {
+		if _s['sessionId'] == _id {
+			return '\u\s[10]\0\s[27]そちらは今も動いておりますわ。\w9\n端末をお探しなさいな。\e'
+		}
+	}
+	_scan = CC.HistScan
+	_proj = _scan['proj']
+	_cwd  = CC.UnescapePath(_proj[_id])
+	if STRLEN(_cwd) == 0 || FSIZE(CC.TranscriptPath(_cwd, _id)) <= 0 {
+		return '\u\s[10]\0\s[3]その記録は、もう片付けられたようですわ。\w8\1お選び直しくださいませ。\e'
+	}
+	_attr = FATTRIB(_cwd)
+	if ARRAYSIZE(_attr) <= 2 || _attr[2] != 1 {
+		return '\u\s[10]\0\s[3]作業フォルダが見当たりませんわ。\w9\n移したか、消したのかしら？\e'
+	}
+	_tail = CC.ReadTail(_cwd, _id)
+	_name = SHIORI3FW.MakeShortText(CC.Label(_tail['agent'], _cwd, _id), 30)
+	//---- 戻り値は ShellExecute のもの。33 以上なら起動できている
+	_ret = EXECUTE('claude', '-r "' + _id + '"', REPLACE(_cwd, '\', '/'))
+	if _ret < 33 {
+		return '\u\s[10]\0\s[3]claude を起動できませんでしたわ。\w8\1Claude Code は、\w9\nお入れでしょうか。\e'
+	}
+	'\u\s[10]\0\s[26]よろしくてよ。\w9\n「' + _name + '」の続きを\w9\n開きますわ。\w8\1端末をご覧くださいませ。\e'
 }
 
 
