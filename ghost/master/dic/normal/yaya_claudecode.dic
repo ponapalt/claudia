@@ -1854,18 +1854,86 @@ CC.HistList
 }
 
 //------------------------------------------------------------------------------
+//会話の記録の 1 行（メッセージ）の時刻を Unix 秒にする。読めなければ 0
+//  行には "timestamp":"2026-10-05T08:12:25.123Z" の形（UTC）で入っている。
+//  ファイルの更新時刻は、開いただけで cost-state などの行が足されて新しくなるので使えない。
+//  時刻を持つのはメッセージの行だけで、これが API を最後に呼んだ時刻の目安になる
+//  _argv[0] 行（CC.ReadTail の last）
+//------------------------------------------------------------------------------
+CC.LineSec
+{
+	_i   = STRSTR(_argv[0], '"timestamp":"', 0)
+	_s   = ''
+	_y   = 0
+	_m   = 0
+	_d   = 0
+	_era = 0
+	_yoe = 0
+	_mp  = 0
+	_doy = 0
+	_doe = 0
+
+	if _i < 0 {
+		return 0
+	}
+	_s = SUBSTR(_argv[0], _i + 13, 19)
+	if STRLEN(RE_REPLACE(_s, '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$', '')) > 0 {
+		return 0
+	}
+	_y = TOINT(SUBSTR(_s, 0, 4))
+	_m = TOINT(SUBSTR(_s, 5, 2))
+	_d = TOINT(SUBSTR(_s, 8, 2))
+	//---- 年月日を 1970/1/1 からの日数にする（3 月を年の始めとして数える）
+	if _m <= 2 {
+		_y = _y - 1
+	}
+	_era = TOINT(_y / 400)
+	_yoe = _y - _era * 400
+	_mp  = (_m + 9) % 12
+	_doy = TOINT((153 * _mp + 2) / 5) + _d - 1
+	_doe = _yoe * 365 + TOINT(_yoe / 4) - TOINT(_yoe / 100) + _doy
+	(_era * 146097 + _doe - 719468) * 86400 + TOINT(SUBSTR(_s, 11, 2)) * 3600 + TOINT(SUBSTR(_s, 14, 2)) * 60 + TOINT(SUBSTR(_s, 17, 2))
+}
+
+//------------------------------------------------------------------------------
+//プロンプトキャッシュが残っていそうなら 1（最後のメッセージから 1 時間以内）
+//  Claude Code のプロンプトキャッシュは 1 時間。続きを開いたとき、これを過ぎていると
+//  会話の全体を読み直すことになる。_argv[0] 最後のメッセージの時刻（Unix 秒）
+//------------------------------------------------------------------------------
+CC.HistFresh
+{
+	if GETSECCOUNT - TOINT(_argv[0]) <= 3600 {
+		1
+	}
+	else {
+		0
+	}
+}
+
+//------------------------------------------------------------------------------
 //履歴の 1 件を 2 行で書く。最後の行に改行は付けない
 //  _argv[0] CC.HistList の 1 件 / _argv[1] 今も動いているなら 1
 //  1 行目は題名（無ければセッションの呼び名、作業フォルダの名前）。動いていなければ選択肢にする
-//  2 行目は最後の依頼の日時と作業フォルダ
+//  2 行目は最後のメッセージの日時、キャッシュの印（温は 1 時間以内、冷はそれより前）、作業フォルダ
+//  日時は会話の記録の最後のメッセージ（CC.LineSec）から。読めなければ、履歴の最後の依頼の時刻
 //------------------------------------------------------------------------------
 CC.HistRow
 {
 	_s    = _argv[0]
 	_tail = CC.ReadTail(_s['cwd'], _s['id'])
 	_name = CC.Label(_tail['agent'], _s['cwd'], _s['id'])
-	_t    = GETTIME(_s['ts'])
+	_sec  = CC.LineSec(_tail['last'])
+	_t    = IARRAY
+	_mark = '冷'
 	_row  = ''
+
+	if _sec <= 0 {
+		_sec = _s['ts']
+	}
+	_t = GETTIME(_sec)
+	if CC.HistFresh(_sec) {
+		_mark = '温'
+	}
 
 	if _argv[1] == 1 {
 		_row = '　' + SHIORI3FW.MakeShortText(_name, 32) + '（実行中）'
@@ -1873,7 +1941,7 @@ CC.HistRow
 	else {
 		_row = '\![*]\q[' + AYATEMPLATE.EscapeText(SHIORI3FW.MakeShortText(_name, 40)) + ',OnCCResume,' + _s['id'] + ']'
 	}
-	_row + '\n　' + _t[1] + '/' + _t[2] + ' ' + _t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + '　' + SHIORI3FW.MakeShortText(CC.Label('', _s['cwd']), 24)
+	_row + '\n　' + _t[1] + '/' + _t[2] + ' ' + _t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + '　' + _mark + '　' + SHIORI3FW.MakeShortText(CC.Label('', _s['cwd']), 22)
 }
 
 //---- 履歴の頁のアンソニーのひとこと
@@ -1919,7 +1987,7 @@ CC.PageHist
 		_talk += '\w8\1記録が残っているのは、\w9\nClaude Code が片付ける前の分だけでございます。'
 		return _talk + CC.PageBottom(MENU.Grid('戻る|OpenMenu'), MENU.HistInfo(0, 1, 1))
 	}
-	_talk = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(2) + 'どれの続きを開きますの？\n\n[half]'
+	_talk = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(2) + 'どれの続きを開きますの？\n温＝1時間以内でキャッシュ有効／冷＝超過\n\n[half]'
 	_end  = _page * _per
 	if _end > _total {
 		_end = _total
