@@ -1699,3 +1699,67 @@ CCS.CloseReport
 	}
 	_talk
 }
+
+
+//******************************************************************************
+//AI グラフ（SHIORI リソース getaistate）
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//功績録の数を 6 軸のレーダーチャートにする。本日の分は加算値にして目立たせる。
+//Claude Code の数がまだ何も無ければ空を返し、システム辞書の既定のグラフ
+//（SHIORI3EV.On_getaistate）に任せる。背景の画像は ghost/master/ai0.png と ai0_dark.png
+//（work/aigraph/make-aigraph.ps1 で作る）
+//  依頼       history.jsonl から数えた依頼の件数
+//  登城日     依頼のあった日の数
+//  領地       依頼のあった作業フォルダの数（本日の分は分けない）
+//  返事待ち   返事待ちに応えた回数
+//  大仕事     1 分半を超える仕事が片付いた回数
+//  稼働(時間) Claude が働いた時間
+//------------------------------------------------------------------------------
+On_getaistate
+{
+	_req   = 0
+	_reqd  = 0
+	_days  = 0
+	_daysd = 0
+	_land  = 0
+	_ans   = 0
+	_ansd  = 0
+	_done  = 0
+	_doned = 0
+	_busy  = 0
+	_busyd = 0
+	_v     = IARRAY
+	_a     = IARRAY
+	_m     = IARRAY
+	_i     = 0
+
+	CCS.Init
+	CCS.RollDay
+	if ccshn + ccsanswer + ccsdone + ccsbusy + ccsnew == 0 {
+		return ''
+	}
+	_reqd = CCS.TodayRequests
+	_req  = ccshn - _reqd
+	_days = ccshdays
+	if _reqd > 0 {
+		_daysd = 1
+		_days -= 1
+	}
+	_land  = HASH_SIZE(ccshproj)
+	_ansd  = ccsd_answer
+	_ans   = ccsanswer - _ansd
+	_doned = ccsd_done
+	_done  = ccsdone - _doned
+	//---- 時間は小数 1 桁まで
+	_busyd = TOREAL(ccsd_busy / 360) / 10
+	_busy  = TOREAL((ccsbusy - ccsd_busy) / 360) / 10
+
+	_v = (_req, _days, _land, _ans, _done, _busy)
+	_a = (_reqd, _daysd, 0, _ansd, _doned, _busyd)
+	for _i = 0 ; _i < 6 ; _i++ {
+		_m ,= SHIORI3FW.AIGraphMax(_v[_i] + _a[_i])
+	}
+	SHIORI3FW.AIGraphJoin(_v) + C_BYTE1 + '依頼,登城日,領地,返事待ち,大仕事,稼働(時間)' + C_BYTE1 + SHIORI3FW.AIGraphJoin(_a) + C_BYTE1 + SHIORI3FW.AIGraphJoin(_m)
+}

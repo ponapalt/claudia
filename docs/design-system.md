@@ -380,6 +380,6 @@ function Get-PaletteColor([string]$Name, [int]$Alpha = 255) {
 
 - キャラクターとサーフェス、トークの書き方: `GHOST.md`
 - バルーンの画像を作るスクリプト: `work/balloon/make-balloon.ps1`（プレビューは `work/balloon/preview.ps1`）
-- メニューの画像: `work/menu/make-menu.ps1`、アイコン: `work/icon/make-icon.ps1`（両方のアイコン）、サムネイル: `work/thumbnail/make-thumbnail.ps1`
+- メニューの画像: `work/menu/make-menu.ps1`、アイコン: `work/icon/make-icon.ps1`（両方のアイコン）、サムネイル: `work/thumbnail/make-thumbnail.ps1`、AI グラフの背景: `work/aigraph/make-aigraph.ps1`
 - シェルの画像を直す手順: `docs/agents/workflows/edit-shell-image.md`
 - バルーンで確かめる: `docs/agents/workflows/try-in-ssp.md`
