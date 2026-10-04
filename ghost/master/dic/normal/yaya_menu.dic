@@ -419,23 +419,26 @@ Menu_GHOSTCOMSTART
 	StartCommunicate
 }
 
+//---- 見出しで切り替える頁（Claude Code は？ と功績録）は、掛け合いも含めて全体を \_q で囲み、
+//     \w の間を取らずに一度に出す（CC.Quick）。切り替えを速くするため
+
 //---- Claude Code は？（実行中と履歴の 2 頁。見出しから切り替える。yaya_claudecode.dic）
 //  実行中: 起動中のセッションの一覧。動いていなければ空欄のひとこと
 Menu_CLAUDECODE
 {
-	CC.PageRun
+	CC.Quick(CC.PageRun)
 }
 
 //---- 履歴: これまでのセッションから選んで、続きを端末で開く
 Menu_CCHIST
 {
-	CC.PageHist(1)
+	CC.Quick(CC.PageHist(1))
 }
 
 //---- 履歴の頁送り（\q の 3 番目の引数が頁の番号）
 OnCCHistPage
 {
-	CC.PageHist(TOINT(reference[0]))
+	CC.Quick(CC.PageHist(TOINT(reference[0])))
 }
 
 //---- 履歴から選んだセッションを開く（reference[0] が sessionId）
@@ -447,59 +450,45 @@ OnCCResume
 //---- 功績録（yaya_ccstats.dic）。メニューから開くと本日の業務報告（1 頁目）を出し、回数を数える
 Menu_CCSTATS
 {
-	CCS.Record
-	--
-	CCSTATS.AfterItems
+	CC.Quick(CCS.Record + CCSTATS.AfterItems)
 }
 
 //---- 功績録の頁の切り替え（頁の上端の見出しから）
 Menu_CCPAGE1
 {
-	CCS.Record(1)
-	--
-	CCSTATS.AfterItems
+	CC.Quick(CCS.Record(1) + CCSTATS.AfterItems)
 }
 
 Menu_CCPAGE2
 {
-	CCS.Record(2)
-	--
-	CCSTATS.AfterItems
+	CC.Quick(CCS.Record(2) + CCSTATS.AfterItems)
 }
 
 Menu_CCPAGE3
 {
-	CCS.Record(3)
-	--
-	CCSTATS.AfterItems
+	CC.Quick(CCS.Record(3) + CCSTATS.AfterItems)
 }
 
 Menu_CCPAGE4
 {
-	CCS.Record(4)
-	--
-	CCSTATS.AfterItems
+	CC.Quick(CCS.Record(4) + CCSTATS.AfterItems)
 }
 
 Menu_CCPAGE5
 {
-	CCS.Record(5)
-	--
-	CCSTATS.AfterItems
+	CC.Quick(CCS.Record(5) + CCSTATS.AfterItems)
 }
 
 Menu_CCPAGE6
 {
-	CCS.Record(6)
-	--
-	CCSTATS.AfterItems
+	CC.Quick(CCS.Record(6) + CCSTATS.AfterItems)
 }
 
 //---- 功績録の各頁の下に付ける選択肢
 //  最後はアンソニーが話しているので、選択肢はクローディアのバルーンに出す
 CCSTATS.AfterItems
 {
-	'\w8\0\n'
+	'\0\n'
 	--
 	AYATEMPLATE.MenuItem("戻る","OpenMenu")
 	--
