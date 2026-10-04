@@ -148,6 +148,7 @@ section { padding: 64px 0 16px; }
 .faces img { width: 100%; border-radius: var(--radius-part); background: var(--paper-deep); }
 .card.butler .faces img { background: var(--butler-paper); border: 1px solid var(--butler-line); }
 .card.butler .faces figure { color: inherit; }
+.faces + .note { margin: 12px 0 0; }
 
 /* ---- features: real balloons captured in SSP ---- */
 .feature { display: grid; grid-template-columns: 1fr 1.2fr; gap: 32px; align-items: center; margin-top: 48px; }
@@ -273,13 +274,19 @@ footer { text-align: center; padding: 48px 16px 64px; font-size: 13px; color: va
           <figure><img src="img/f0.png" width="140" height="140" alt="微笑"><figcaption>微笑</figcaption></figure>
           <figure><img src="img/f25.png" width="140" height="140" alt="にっこり"><figcaption>にっこり</figcaption></figure>
           <figure><img src="img/f26.png" width="140" height="140" alt="したり顔"><figcaption>したり顔</figcaption></figure>
+          <figure><img src="img/f8.png" width="140" height="140" alt="扇で口元を隠した冷笑"><figcaption>冷笑</figcaption></figure>
           <figure><img src="img/f5.png" width="140" height="140" alt="高笑い"><figcaption>高笑い</figcaption></figure>
           <figure><img src="img/f1.png" width="140" height="140" alt="照れ"><figcaption>照れ</figcaption></figure>
+          <figure><img src="img/f9.png" width="140" height="140" alt="頬を染めて眉を寄せた照れ怒り"><figcaption>照れ怒り</figcaption></figure>
           <figure><img src="img/f2.png" width="140" height="140" alt="驚き"><figcaption>驚き</figcaption></figure>
+          <figure><img src="img/f27.png" width="140" height="140" alt="閉じた扇を口元に当てて考え中"><figcaption>考え中</figcaption></figure>
+          <figure><img src="img/f3.png" width="140" height="140" alt="困り顔"><figcaption>困り顔</figcaption></figure>
           <figure><img src="img/f7.png" width="140" height="140" alt="不機嫌"><figcaption>不機嫌</figcaption></figure>
           <figure><img src="img/f4.png" width="140" height="140" alt="落胆"><figcaption>落胆</figcaption></figure>
           <figure><img src="img/f6.png" width="140" height="140" alt="目閉じ"><figcaption>目閉じ</figcaption></figure>
+          <figure><img src="img/f28.png" width="140" height="140" alt="スカートの裾をつまんでお辞儀するクローディア"><figcaption>お辞儀</figcaption></figure>
         </div>
+        <p class="note">お辞儀は、裾をつまんで膝を折るカーテシーの動きつき。ご挨拶とお見送りのときにお見せしますわ。</p>
       </article>
       <article class="card butler">
         <i class="brooch"></i>
@@ -320,12 +327,13 @@ footer { text-align: center; padding: 48px 16px 64px; font-size: 13px; color: va
     <div class="feature wide">
       <div class="text">
         <h3>長いお仕事の完了と、休憩のすすめ</h3>
-        <p>時間のかかった作業が片付けば、ひとことお声がけしますわ。続けて 2 時間も働きづめなら、お茶を淹れさせますの。根を詰めても、良い設計は浮かびませんわよ。</p>
+        <p>時間のかかった作業が片付けば、ひとことお声がけしますわ。どの作業の話か分かるよう、Claude Code が付けたセッションの題名で呼び、ファイルの手直しやコマンドの数、つまずいた回数まで添えて報告しますの。</p>
+        <p>続けて 2 時間も働きづめなら、お茶を淹れさせますわ。根を詰めても、良い設計は浮かびませんわよ。</p>
       </div>
       <div class="stage cols">
         <div class="pair">
-          <div class="talk"><img class="b" src="img/cc-done-0.png" width="400" height="206" alt="クローディア「……静かになりましたわ。片付いたようですわね。わたくしの見立てどおりですわ。」"><img class="f" src="img/f26.png" width="140" height="140" alt=""></div>
-          <div class="talk anthony"><img class="b" src="img/cc-done-1.png" width="400" height="121" alt="アンソニー「お見事でございます。」"><img class="f" src="img/f10.png" width="120" height="120" alt=""></div>
+          <div class="talk"><img class="b" src="img/cc-done-0.png" width="400" height="206" alt="クローディア「【紹介ページを最新の機能に改稿】14分の大仕事でしたわね。手直ししたファイルが3件、コマンドが12回、調べものが8回。」「当然ですわ。」"><img class="f" src="img/f26.png" width="140" height="140" alt=""></div>
+          <div class="talk anthony"><img class="b" src="img/cc-done-1.png" width="400" height="121" alt="アンソニー「一度もつまずかずに、でございます。」"><img class="f" src="img/f10.png" width="120" height="120" alt=""></div>
           <div class="caption">長考が片付いたとき</div>
         </div>
         <div class="pair">
@@ -338,20 +346,41 @@ footer { text-align: center; padding: 48px 16px 64px; font-size: 13px; color: va
 
     <div class="feature">
       <div class="text">
-        <h3>功績録と称号</h3>
+        <h3>功績録と業務報告</h3>
         <p>あなたが Claude Code に下した依頼の数、登城した日数、夜更かしの回数まで、わたくしが帳簿につけておきますわ。節目には称号を授けて差し上げますの。</p>
+        <p>業務報告では、依頼の数、よく働く時刻、治めた領地、Claude が働いた時間を、本日・昨日・今週・先週・今月・先月・今年から選んでまとめますわ。日付を入れて、好きな期間を指定することもできましてよ。</p>
         <p class="note">依頼の履歴から読むのは時刻と作業フォルダだけ。依頼の本文は読みませんわ。</p>
       </div>
       <div class="stage cols">
-        <div><img src="img/stats-0.png" width="400" height="461" alt="功績録の頁。記録の始まり、登城した日、依頼の件数、一日の最多などが並ぶ"></div>
+        <div><img src="img/report-0.png" width="400" height="461" alt="業務報告の頁。本日・昨日・今週などの期間の切り替えと、依頼の件数、よく働く時刻、治めた領地、Claude が働いた時間などが並ぶ"></div>
         <div><img src="img/titles-0.png" width="400" height="461" alt="称号の頁。『五千の依頼を下せし者』『夜更かしの騎士』『暁の働き者』などの称号と、高笑い"></div>
+      </div>
+    </div>
+
+    <div class="feature wide">
+      <div class="text">
+        <h3>お茶とタイマー</h3>
+        <p>メニューの「お茶とタイマー」から、アンソニーに紅茶を頼めば、茶葉ごとの蒸らし時間で砂時計を返しますわ。時間を指定した砂時計も、6 本まで同時に立てられますの。</p>
+        <p>執務（ポモドーロ）を始めれば、集中と休憩の区切りをお知らせしますわ。集中している間は、わたくしもおしゃべりを控えて差し上げます。分数と本数は「執務の時間割」で変えられましてよ。</p>
+      </div>
+      <div class="stage cols">
+        <div class="pair">
+          <div class="talk"><img class="b" src="img/timer-menu-0.png" width="400" height="206" alt="お茶とタイマーのメニュー。ダージリン 3分、アッサム 4分、アールグレイ 3分、カモミール 5分、時間を指定、砂時計を止める、執務を始める、執務の時間割。最下段に砂時計の残り時間"><img class="f" src="img/f26.png" width="140" height="140" alt=""></div>
+          <div class="talk anthony"><img class="b" src="img/tea-start-1.png" width="400" height="121" alt="アンソニー「かしこまりました。ダージリンを3分、蒸らします。」"><img class="f" src="img/f10.png" width="120" height="120" alt=""></div>
+          <div class="caption">紅茶の砂時計</div>
+        </div>
+        <div class="pair">
+          <div class="talk"><img class="b" src="img/pomo-0.png" width="400" height="206" alt="クローディア「おーっほっほっほ！4本、見事に片付きましたわね！」「よく頑張りましたわ。ゆっくりお茶になさい。」"><img class="f" src="img/f5.png" width="140" height="140" alt=""></div>
+          <div class="talk anthony"><img class="b" src="img/pomo-1.png" width="400" height="121" alt="アンソニー「長めのご休憩を15分、でございます。」"><img class="f" src="img/f10.png" width="120" height="120" alt=""></div>
+          <div class="caption">執務がひと組片付くと</div>
+        </div>
       </div>
     </div>
 
     <div class="feature flip">
       <div class="text">
         <h3>お嬢様と執事の掛け合い</h3>
-        <p>ふだんは、わたくしとアンソニーのたわいもない会話。紅茶の品評のような続きものもありますわ。季節や記念日には、それにちなんだお話も。</p>
+        <p>ふだんは、わたくしとアンソニーのたわいもない会話。紅茶の品評のような続きものもありますわ。季節の折々や、Claude の誕生日のような記念日には、それにちなんだお話も。</p>
       </div>
       <div class="stage">
         <div class="talk"><img class="b" src="img/talk-tea-0.png" width="400" height="206" alt="クローディア「アンソニー、あなたにも好きな紅茶はありますの？」「あら、どの茶葉かしら。」「……あ、あれは茶葉を入れすぎただけですわ！」"><img class="f" src="img/f1.png" width="140" height="140" alt=""></div>
@@ -392,17 +421,17 @@ footer { text-align: center; padding: 48px 16px 64px; font-size: 13px; color: va
     <div class="feature">
       <div class="text">
         <h3>メニュー</h3>
-        <p>わたくしをダブルクリックすればメニューですわ。話しかける、功績録を見る、Claude Code の様子を確かめる、設定を変える。最後の行には、今日の依頼の数と待ちの数が出ますの。</p>
+        <p>わたくしをダブルクリックすればメニューですわ。話しかける、功績録と業務報告を見る、お茶を頼む、Claude Code の様子を確かめる、設定を変える。最後の行には、今日の依頼の数と待ちの数が出ますの。</p>
       </div>
       <div class="stage">
-        <div class="talk"><img class="b" src="img/menu-0.png" width="400" height="206" alt="メニュー。何か話して、さっきの話は？、話しかける、ゴーストと話す、これまでの功績、Claude Code は？、設定、なんでもない。最下段に今日の依頼の数"><img class="f" src="img/f26.png" width="140" height="140" alt=""></div>
+        <div class="talk"><img class="b" src="img/menu-0.png" width="400" height="206" alt="クローディア「また呼びましたの？今度は何ですの。」メニュー。何か話して、話しかける、ゴーストと話す、功績録と業務報告、お茶とタイマー、Claude Code は？、設定、なんでもない。最下段に今日の依頼の数"><img class="f" src="img/f7.png" width="140" height="140" alt=""></div>
       </div>
     </div>
 
     <div class="others">
       <div class="card"><h4>話しかけ</h4><p>「名前を覚えて」と話しかければ、呼び方を変えて差し上げますわ。</p></div>
       <div class="card"><h4>PC の様子</h4><p>充電の抜き差し、電池の残り、USB 機器、壁紙の変更、音楽の再生にも気づきますの。</p></div>
-      <div class="card"><h4>デスクトップの出来事</h4><p>最小化と復帰、全画面のアプリ。邪魔をしないよう、心得ておりますわ。</p></div>
+      <div class="card"><h4>デスクトップの出来事</h4><p>最小化と復帰、全画面のアプリ、スリープからのお目覚めと画面ロックの解除。邪魔をしないよう、心得ておりますわ。</p></div>
       <div class="card"><h4>専用のバルーン</h4><p>招待状を模した横長・縦長の吹き出しを同梱。ネットワーク更新にも対応していますわ。</p></div>
     </div>
   </section>
