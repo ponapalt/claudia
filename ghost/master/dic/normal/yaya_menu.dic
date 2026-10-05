@@ -26,6 +26,8 @@
 //  右の段は半角 20 字にそろえる。項目の頭に付く菱の印（\![*]）の幅のぶん、
 //  22 字ではバルーンの右端（345px）を越えて折り返し、次の行の表示が崩れるため
 //  右の段に回る項目の文字列は半角 20 字まで（長いと切られる）
+//  項目に '-' だけを渡すと、選べない空欄として 1 つぶんの場所を取る（出たり出な
+//  かったりする項目の場所を空けておいて、ほかの項目が動かないようにする）
 //******************************************************************************
 MENU.Grid
 {
@@ -55,8 +57,12 @@ MENU.Grid
 //---- 二段組みの 1 項目。_argv[0] は「表示する文字列|関数名」、_argv[1] はそろえる幅（半角）
 //  「表示する文字列|関数名|引数|‥‥」と書くと、引数を \q の 3 番目以降に付ける
 //  （OnChoiceSelectEx の reference[2] 以降に入る。yaya_teatimer.dic）
+//  '-' は空欄（何も出さない。右の段は \_l[180] が位置を決めるので、左が空でもずれない）
 MENU.Cell
 {
+	if _argv[0] == '-' {
+		return ''
+	}
 	_p  = SPLIT(_argv[0], '|')
 	_id = AYATEMPLATE.EscapeText(_p[1])
 	_i  = 0
@@ -112,6 +118,14 @@ MENU.HistInfo
 	_t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + ' 現在　履歴 ' + CCS.Comma(_argv[0]) + '件・' + _argv[1] + '/' + _argv[2] + '頁'
 }
 
+//---- Claude Code の新規の頁の情報バーの中身。「17:48 現在　フォルダ 12件・1/2頁」
+//  _argv[0] 並べるフォルダの数 / _argv[1] 今の頁 / _argv[2] 頁の数
+MENU.NewInfo
+{
+	_t = GETTIME
+	_t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + ' 現在　フォルダ ' + _argv[0] + '件・' + _argv[1] + '/' + _argv[2] + '頁'
+}
+
 //---- 設定メニューの情報バーの中身。「話す頻度：ふつう・呼び名：あなた」
 MENU.ConfigInfo
 {
@@ -161,17 +175,26 @@ OPENMENU.Body
 	_items = IARRAY
 
 	_items ,= '何か話して|Menu_AITALK'
+	//---- 話がまだ無いときも右の段を空欄で送り、ほかの項目の位置を動かさない
 	if STRLEN(AYATEMPLATE.LastTalk) > 0 {
 		_items ,= 'さっきの話は？|Menu_LASTTALK'
 	}
+	else {
+		_items ,= '-'
+	}
 	_items ,= '話しかける|Menu_COMMUNICATEOPEN'
 	_items ,= 'ゴーストと話す|Menu_GHOSTCOMSTART'
-	_items ,= '功績録と業務報告|Menu_CCSTATS'
-	_items ,= 'お茶とタイマー|Menu_TIMER'
-	//---- Claude Code を使っている PC なら、動いていなくても見せる（実行中と履歴）
+	//---- Claude Code まわりを「Claude Code は？」「功績録」「タイマー」の順に並べる
+	//  Claude Code を使っている PC なら、動いていなくても見せる（実行中と履歴）。
+	//  使っていない PC では左の段を空欄にして、功績録以降の位置を動かさない
 	if !CCS.NoClaude {
 		_items ,= 'Claude Code は？|Menu_CLAUDECODE'
 	}
+	else {
+		_items ,= '-'
+	}
+	_items ,= '功績録と業務報告|Menu_CCSTATS'
+	_items ,= 'お茶とタイマー|Menu_TIMER'
 	_items ,= '設定|Menu_CONFIG'
 	_items ,= 'なんでもない|Menu_CANCEL'
 
@@ -422,7 +445,7 @@ Menu_GHOSTCOMSTART
 //---- 見出しで切り替える頁（Claude Code は？ と功績録）は、掛け合いも含めて全体を \_q で囲み、
 //     \w の間を取らずに一度に出す（CC.Quick）。切り替えを速くするため
 
-//---- Claude Code は？（実行中と履歴の 2 頁。見出しから切り替える。yaya_claudecode.dic）
+//---- Claude Code は？（実行中・作業履歴・新規起動の 3 頁。見出しから切り替える。yaya_claudecode.dic）
 //  実行中: 起動中のセッションの一覧。動いていなければ空欄のひとこと
 Menu_CLAUDECODE
 {
@@ -445,6 +468,24 @@ OnCCHistPage
 OnCCResume
 {
 	CC.Resume(reference[0])
+}
+
+//---- 新規起動: これまでに使った作業フォルダから選んで、そこで claude を新しく始める
+Menu_CCNEW
+{
+	CC.Quick(CC.PageNew(1))
+}
+
+//---- 新規の頁送り（\q の 3 番目の引数が頁の番号）
+OnCCNewPage
+{
+	CC.Quick(CC.PageNew(TOINT(reference[0])))
+}
+
+//---- 新規の頁から選んだフォルダで claude を起動する（reference[0] が、そのフォルダの sessionId）
+OnCCNew
+{
+	CC.NewSession(reference[0])
 }
 
 //---- 功績録（yaya_ccstats.dic）。メニューから開くと本日の業務報告（1 頁目）を出し、回数を数える

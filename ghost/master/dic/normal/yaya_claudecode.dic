@@ -1639,11 +1639,12 @@ CC.ListButler
 
 
 //******************************************************************************
-//「Claude Code は？」の頁（実行中と履歴）
+//「Claude Code は？」の頁（実行中・作業履歴・新規起動）
 //
-//メニューの「Claude Code は？」は、実行中でなくても開ける。上端の見出しで 2 つの頁を切り替える。
-//  実行中  今動いているセッションの一覧（CC.PageRun）。1 つも無ければ空欄のひとこと
-//  履歴    これまでのセッションから選んで、続きを端末で開く（CC.PageHist）
+//メニューの「Claude Code は？」は、実行中でなくても開ける。上端の見出しで 3 つの頁を切り替える。
+//  実行中    今動いているセッションの一覧（CC.PageRun）。1 つも無ければ空欄のひとこと
+//  作業履歴  これまでのセッションから選んで、続きを端末で開く（CC.PageHist）
+//  新規起動  これまでに使った作業フォルダから選んで、そこで claude を新しく始める（CC.PageNew）
 //
 //履歴は、依頼の履歴 %USERPROFILE%\.claude\history.jsonl（功績録と同じファイル）を
 //末尾から読んで、sessionId ごとに最後の依頼の時刻と作業フォルダ（project）を拾う（CC.HistScan）。
@@ -1653,18 +1654,20 @@ CC.ListButler
 //
 //選ぶと OnCCResume（yaya_menu.dic）が呼ばれ、CC.Resume が作業フォルダを cwd にして
 //claude -r <sessionId> を EXECUTE（第 3 引数の作業フォルダは Tc604-1 から）で開く。
+//新規起動は、履歴の作業フォルダ（project）を重ねて新しい順に並べ（CC.DirList）、選ぶと OnCCNew が
+//CC.NewSession を呼び、そのフォルダを cwd にして claude を引数なしで EXECUTE する。
 //claude を拡張子なしで呼ぶのは、claude.exe 以外の入り口（他の OS）でも動くようにするため。
 //EXECUTE はコンソールの見せ方を指定できないので、窓は既定の端末で開く。
 //******************************************************************************
 
 //------------------------------------------------------------------------------
 //頁の上端の見出し。今の頁は太字、もう一方は選択肢にする
-//  _argv[0] 今の頁（1 実行中 / 2 履歴）
+//  _argv[0] 今の頁（1 実行中 / 2 作業履歴 / 3 新規起動）
 //------------------------------------------------------------------------------
 CC.Tabs
 {
-	_names = ('実行中', '履歴')
-	_ids   = ('Menu_CLAUDECODE', 'Menu_CCHIST')
+	_names = ('実行中', '作業履歴', '新規起動')
+	_ids   = ('Menu_CLAUDECODE', 'Menu_CCHIST', 'Menu_CCNEW')
 	_i     = 0
 	_name  = ''
 	_talk  = ''
@@ -1729,7 +1732,7 @@ CC.PageRun
 	}
 	if _n == 0 {
 		_talk  = '\u\s[10]\0\s[4]\b[2]\_q' + CC.Tabs(1) + 'もう誰も働いておりませんわ。\_q'
-		_talk += '\w8\1手すきのときは、\w9\n「履歴」から続きを開けますが。'
+		_talk += '\w8\1手すきのときは、\w9\n「作業履歴」から続きを開けますが。'
 	}
 	else {
 		//---- 一覧は長くなるので大きいバルーン（\b[2]）で出す
@@ -1981,8 +1984,9 @@ CC.PageHist
 	_row   = IHASH()
 	_i     = 0
 	_end   = 0
-	_prev  = ''
-	_next  = ''
+	//---- 前後の頁が無いときは空欄（'-'）にして、「戻る」などの位置を動かさない
+	_prev  = '-'
+	_next  = '-'
 	_talk  = ''
 
 	if _page > _pages {
@@ -1998,7 +2002,7 @@ CC.PageHist
 	if _total == 0 {
 		_talk  = '\u\s[10]\0\s[3]\b[2]\_q' + CC.Tabs(2) + '続きを開ける履歴が、\nまだございませんわ。\_q'
 		_talk += '\w8\1記録が残っているのは、\w9\nClaude Code が片付ける前の分だけでございます。'
-		return _talk + CC.PageBottom(MENU.Grid('戻る|OpenMenu'), MENU.HistInfo(0, 1, 1))
+		return _talk + CC.PageBottom(MENU.Grid('-', '-', '戻る|OpenMenu'), MENU.HistInfo(0, 1, 1))
 	}
 	_talk = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(2) + 'どれの続きを開きますの？\n温＝1時間以内でキャッシュ有効／冷＝超過\n\n[half]'
 	_end  = _page * _per
@@ -2067,6 +2071,164 @@ CC.Resume
 		return '\u\s[10]\0\s[3]claude を起動できませんでしたわ。\w8\1Claude Code は、\w9\nお入れでしょうか。\e'
 	}
 	'\u\s[10]\0\s[26]よろしくてよ。\w9\n「' + _name + '」の続きを\w9\n開きますわ。\w8\1端末をご覧くださいませ。\e'
+}
+
+
+//------------------------------------------------------------------------------
+//新規の頁。今まで Claude Code を使った作業フォルダを、新しい順に並べる
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+//履歴にある作業フォルダを、最後に依頼した新しい順に並べる（フォルダごとに 1 件。実在するものだけ）
+//  戻り値  ハッシュの配列。id そのフォルダで最後に依頼したセッションの sessionId /
+//          ts 最後の依頼の時刻（Unix 秒）/ cwd 作業フォルダ
+//  選択肢にはパスを載せず、id を載せる（パスのカンマや円記号で選択肢が壊れないように。
+//  開くときは id から作業フォルダを引き直す。CC.NewSession）
+//  履歴は約 60 日分（CC.HistScan）。Windows のパスは大文字小文字を区別しないので、同じものとして重ねる
+//------------------------------------------------------------------------------
+CC.DirList
+{
+	_scan = CC.HistScan
+	_last = _scan['last']
+	_proj = _scan['proj']
+	_best = IHASH()
+	_pick = IHASH()
+	_keys = IARRAY
+	_list = IARRAY
+	_id   = ''
+	_ms   = 0
+	_cwd  = ''
+	_key  = ''
+	_k    = ''
+	_a    = IARRAY
+	_attr = IARRAY
+
+	foreach _last ; _id, _ms {
+		_cwd = CC.UnescapePath(_proj[_id])
+		if STRLEN(_cwd) == 0 {
+			continue
+		}
+		_key = TOLOWER(_cwd)
+		if _ms > TOINT(_best[_key]) {
+			_best[_key] = _ms
+			_pick[_key] = _id
+		}
+	}
+	foreach _pick ; _key, _id {
+		_keys ,= _best[_key] + '|' + _id
+	}
+	if ARRAYSIZE(_keys) == 0 {
+		return _list
+	}
+	//---- 時刻は 13 桁そろっているので、文字列の降順で新しい順になる
+	_keys = ASORT('string,descending', _keys)
+	foreach _keys ; _k {
+		_a    = SPLIT(_k, '|')
+		_cwd  = CC.UnescapePath(_proj[_a[1]])
+		_attr = FATTRIB(_cwd)
+		if ARRAYSIZE(_attr) > 2 && _attr[2] == 1 {
+			_list ,= IHASH('id', _a[1], 'ts', TOINT(_a[0]) / 1000, 'cwd', _cwd)
+		}
+	}
+	_list
+}
+
+//---- 新規の頁のアンソニーのひとこと
+CC.NewButler : nonoverlap
+{
+	'前の続きではなく、\w9\nまっさらな Claude Code を\w9\nお開きいたします。'
+	'いつもの作業フォルダに\w9\n新しく席をご用意いたします。'
+}
+
+//------------------------------------------------------------------------------
+//新規の頁。作業フォルダを 6 件ずつ並べる。選ぶと、そのフォルダで claude を新しく起動する
+//  _argv[0] 頁の番号（1 から。範囲を外れたら寄せる）
+//------------------------------------------------------------------------------
+CC.PageNew
+{
+	_per   = 6
+	_list  = CC.DirList
+	_total = ARRAYSIZE(_list)
+	_pages = (_total + _per - 1) / _per
+	_page  = TOINT(_argv[0])
+	_row   = IHASH()
+	_t     = IARRAY
+	_i     = 0
+	_end   = 0
+	//---- 前後の頁が無いときは空欄（'-'）にして、「戻る」などの位置を動かさない
+	_prev  = '-'
+	_next  = '-'
+	_talk  = ''
+
+	if _page > _pages {
+		_page = _pages
+	}
+	if _page < 1 {
+		_page = 1
+	}
+	if _total == 0 {
+		_talk  = '\u\s[10]\0\s[3]\b[2]\_q' + CC.Tabs(3) + '開けるフォルダが、\nまだ履歴にございませんわ。\_q'
+		_talk += '\w8\1Claude Code をお使いになれば、\w9\nここに並びます。'
+		return _talk + CC.PageBottom(MENU.Grid('-', '-', '戻る|OpenMenu'), MENU.NewInfo(0, 1, 1))
+	}
+	_talk = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(3) + 'どのフォルダで始めますの？\n最後に使った順ですわ。\n\n[half]'
+	_end  = _page * _per
+	if _end > _total {
+		_end = _total
+	}
+	for _i = (_page - 1) * _per ; _i < _end ; _i++ {
+		if _i > (_page - 1) * _per {
+			_talk += '\n'
+		}
+		_row   = _list[_i]
+		_t     = GETTIME(_row['ts'])
+		_talk += '\![*]\q[' + AYATEMPLATE.EscapeText(SHIORI3FW.MakeShortText(CC.Safe(CC.ProjectName(_row['cwd'])), 40)) + ',OnCCNew,' + _row['id'] + ']'
+		//---- 2 行目は日付と、フォルダの名前を除いた親のパス（名前は 1 行目に出ている）
+		_talk += '\n　' + _t[1] + '/' + _t[2] + '　' + SHIORI3FW.MakeShortText(CC.Safe(RE_REPLACE(REPLACE(_row['cwd'], '\', '/'), '/[^/]*$', '')), 34)
+	}
+	_talk += '\_q\w8\1' + CC.NewButler
+	if _page > 1 {
+		_prev = '前の頁|OnCCNewPage|' + (_page - 1)
+	}
+	if _page < _pages {
+		_next = '次の頁|OnCCNewPage|' + (_page + 1)
+	}
+	_talk + CC.PageBottom(MENU.Grid(_prev, _next, '戻る|OpenMenu'), MENU.NewInfo(_total, _page, _pages))
+}
+
+//------------------------------------------------------------------------------
+//新規の頁から選んだ作業フォルダで、claude を新しく起動する
+//  _argv[0] sessionId（CC.DirList が出したもの。ここから作業フォルダを引き直す）
+//  戻り値  トーク。開けなければ、その理由を話す
+//------------------------------------------------------------------------------
+CC.NewSession
+{
+	_id   = _argv[0]
+	_scan = IHASH()
+	_proj = IHASH()
+	_cwd  = ''
+	_attr = IARRAY
+	_name = ''
+	_ret  = 0
+
+	//---- sessionId は新規の頁が出した UUID のはず。違う形のものは相手にしない
+	if STRLEN(_id) != 36 || STRLEN(RE_REPLACE(_id, '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', '')) > 0 {
+		return '\u\s[10]\0\s[3]そのフォルダは見当たりませんわ。\w8\1お選び直しくださいませ。\e'
+	}
+	_scan = CC.HistScan
+	_proj = _scan['proj']
+	_cwd  = CC.UnescapePath(_proj[_id])
+	_attr = FATTRIB(_cwd)
+	if STRLEN(_cwd) == 0 || ARRAYSIZE(_attr) <= 2 || _attr[2] != 1 {
+		return '\u\s[10]\0\s[3]作業フォルダが見当たりませんわ。\w9\n移したか、消したのかしら？\e'
+	}
+	_name = SHIORI3FW.MakeShortText(CC.Safe(CC.ProjectName(_cwd)), 30)
+	//---- 戻り値は ShellExecute のもの。33 以上なら起動できている
+	_ret = EXECUTE('claude', '', REPLACE(_cwd, '\', '/'))
+	if _ret < 33 {
+		return '\u\s[10]\0\s[3]claude を起動できませんでしたわ。\w8\1Claude Code は、\w9\nお入れでしょうか。\e'
+	}
+	'\u\s[10]\0\s[26]よろしくてよ。\w9\n「' + _name + '」で\w9\n新しく始めますわ。\w8\1端末をご覧くださいませ。\e'
 }
 
 
