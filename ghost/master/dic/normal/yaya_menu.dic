@@ -126,6 +126,27 @@ MENU.NewInfo
 	_t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + ' 現在　フォルダ ' + _argv[0] + '件・' + _argv[1] + '/' + _argv[2] + '頁'
 }
 
+//---- Claude Code のお知らせの頁の情報バーの中身。「17:48 現在　鈴：有効」
+//  _argv[0] CCH.PluginState の結果
+MENU.HookInfo
+{
+	_t    = GETTIME
+	_name = '未導入'
+
+	case _argv[0] {
+		when 'on' {
+			_name = '有効'
+		}
+		when 'off' {
+			_name = '停止中'
+		}
+		when 'elsewhere' {
+			_name = '別の場所から'
+		}
+	}
+	_t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + ' 現在　鈴：' + _name
+}
+
 //---- 設定メニューの情報バーの中身。「話す頻度：ふつう・呼び名：あなた」
 MENU.ConfigInfo
 {
@@ -486,6 +507,35 @@ OnCCNewPage
 OnCCNew
 {
 	CC.NewSession(reference[0])
+}
+
+//---- お知らせ: Claude Code のプラグイン（鈴）の状態と、付け外し（yaya_cchook.dic）
+Menu_CCHOOK
+{
+	CC.Quick(CCH.Page)
+}
+
+//---- 付ける・外す前の確かめ（reference[0] が install / remove、reference[1] が合言葉）
+OnCCHookAsk
+{
+	CCH.Ask(reference[0], reference[1])
+}
+
+//---- claude plugin ... を走らせる（reference[0] が install / remove / on / off、reference[1] が合言葉）
+OnCCHookRun
+{
+	CCH.Run(reference[0], reference[1])
+}
+
+//---- 手続きが終わった（CCH.Run が見張る印のファイルが書き換わった）
+OnCCHookDone
+{
+	CCH.Done
+}
+
+OnCCHookDoneFailure
+{
+	CCH.DoneFailure
 }
 
 //---- 功績録（yaya_ccstats.dic）。メニューから開くと本日の業務報告（1 頁目）を出し、回数を数える

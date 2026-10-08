@@ -1,0 +1,12 @@
+{
+  "name": "ukagaka-notify",
+  "displayName": "Ukagaka Notify",
+  "description": "Forwards Claude Code hook events to a running ukagaka ghost (SSP) as SSTP NOTIFY OnClaudeCodeHook.",
+  "author": {
+    "name": "ponapalt&claudia"
+  },
+  "homepage": "https://github.com/ponapalt/claudia",
+  "repository": "https://github.com/ponapalt/claudia",
+  "license": "Unlicense",
+  "keywords": ["ukagaka", "ssp", "sstp", "notification"]
+}

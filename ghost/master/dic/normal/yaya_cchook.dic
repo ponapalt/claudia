@@ -1,0 +1,517 @@
+//******************************************************************************
+// 悪役令嬢クローディア
+// Claude Code のフック（プラグイン ukagaka-notify）からの知らせ
+//******************************************************************************
+//
+//ghost/master/ccplugin/ は Claude Code のプラグインのマーケットプレイスになっている。
+//ユーザーが入れると、Claude Code のフックが起きるたびに、プラグインの
+//scripts/notify.ps1 が SSTP で次の NOTIFY を送ってくる（SSP が起動していなければ何もしない）。
+//
+//  Event: OnClaudeCodeHook
+//  ReceiverGhostName: Claudia
+//  Reference0  フックのイベント名（StopFailure など）
+//  Reference1  session_id
+//  Reference2  cwd（作業フォルダ）
+//  Reference3  フックの入力の JSON（1 行。長い文字列は 400 字で切ってある）
+//
+//入れ方は、メニュー「Claude Code は？」の「お知らせ」の頁（CCH.Page）から選ぶか、ターミナルで
+//  claude plugin marketplace add "<ghost>/ghost/master/ccplugin"
+//  claude plugin install ukagaka-notify@claudia
+//ローカルのフォルダのマーケットプレイスはコピーされずにその場で読まれるので、
+//ゴーストを更新すれば、次のセッションからプラグインも新しくなる。
+//
+//セッションの状態（作業中・返事待ち・待機）は、これまでどおり yaya_claudecode.dic の
+//filewatch で見張る。フックからは、filewatch では分からないことだけを受け取る。
+//  StopFailure       API のエラーで依頼が止まった（error: rate_limit / overloaded など）
+//  PreCompact        会話が長くなって、自動で要約された（matcher は auto だけ）
+//  PermissionDenied  自動モードで、ツールの実行が止められた（reason に理由）
+//送るイベントを増やすときは、プラグインの hooks/hooks.json に足して、ここに分岐を書く。
+//
+//フックは端末でないセッション（claude -p など）でも起きるので、端末で動いているものの
+//知らせだけを相手にする（CCH.IsInteractive）。
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//フックからの知らせ
+//------------------------------------------------------------------------------
+OnClaudeCodeHook
+{
+	_event = reference[0]
+	_id    = reference[1]
+	_cwd   = reference[2]
+	_data  = CC.ParseJSON(reference[3])
+	_talk  = ''
+
+	//---- 届いたことを覚えておく（プラグインが動いているかの目安）
+	cchookat = GETSECCOUNT
+
+	if !CCH.IsInteractive(_id) {
+		return ''
+	}
+
+	case _event {
+		when 'StopFailure' {
+			//---- filewatch が同じ止まり方を「片付いた」と取り違えないよう、先に覚えておく
+			ccfailid = _id
+			ccfailat = GETSECCOUNT
+			_talk    = CCH.TalkFailure(_data['error'], _data['error_details'])
+		}
+		when 'PreCompact' {
+			if CC.TalkOK(60) && !TM.Focusing {
+				_talk = CCH.TalkCompact
+			}
+		}
+		when 'PermissionDenied' {
+			if CC.TalkOK(15) {
+				_talk = CCH.TalkDenied(_data['tool_name'], CCH.ToolDetail(_data['tool_input']), _data['reason'])
+			}
+		}
+	}
+
+	if STRLEN(_talk) == 0 {
+		return ''
+	}
+	cctalkat = GETSECCOUNT
+	CC.WithLabel(_talk, CC.Label('', _cwd, _id))
+}
+
+//------------------------------------------------------------------------------
+//sessionId のセッションが、端末で動いているものなら 1
+//------------------------------------------------------------------------------
+CCH.IsInteractive
+{
+	_list = CC.Scan
+	_s    = IHASH()
+	_is   = 0
+
+	foreach _list ; _s {
+		if _s['sessionId'] == _argv[0] && _s['kind'] == 'interactive' {
+			_is = 1
+			break
+		}
+	}
+	_is
+}
+
+//------------------------------------------------------------------------------
+//filewatch が作業の終わりを見つけたとき、それが API のエラーで止まったものなら 1
+//  _argv[0] sessionId
+//StopFailure と filewatch のどちらが先に届くかは決まっていない。先に StopFailure が
+//届いていれば、完了のねぎらいを出さない。後から届いたときは、エラーのトークが上書きする
+//------------------------------------------------------------------------------
+CCH.JustFailed
+{
+	_is   = 0
+	_past = GETSECCOUNT - ccfailat
+
+	if STRLEN(_argv[0]) > 0 && ccfailid == _argv[0] && _past >= 0 && _past < 30 {
+		_is = 1
+	}
+	_is
+}
+
+//------------------------------------------------------------------------------
+//ツールの入力から、トークに載せる中身を 1 つ選ぶ。無ければ空文字列
+//  _argv[0] tool_input（ハッシュ）
+//------------------------------------------------------------------------------
+CCH.ToolDetail
+{
+	_in     = _argv[0]
+	_detail = ''
+
+	if GETTYPE(_in) != 5 {
+		return ''
+	}
+	if STRLEN(_in['description']) > 0 {
+		_detail = _in['description']
+	}
+	elseif STRLEN(_in['command']) > 0 {
+		_detail = _in['command']
+	}
+	elseif STRLEN(_in['file_path']) > 0 {
+		_detail = CC.ProjectName(_in['file_path'])
+	}
+	SHIORI3FW.MakeShortText(CC.Safe(_detail), 40)
+}
+
+
+//******************************************************************************
+//トーク
+//******************************************************************************
+
+//---- API のエラーで依頼が止まった
+//  _argv[0] error（rate_limit など）/ _argv[1] error_details
+CCH.TalkFailure
+{
+	_detail = SHIORI3FW.MakeShortText(CC.Safe(_argv[1]), 40)
+
+	case _argv[0] {
+		when 'rate_limit' {
+			'\u\s[10]\0\s[3]あら、止まってしまいましたわ。\w9\n使える量の上限ですって。\w8\1しばらく待てば、また動けるかと。\w8\0\s[7]\n\n‥\w5‥\w5働かせすぎですわよ。\e'
+			'\u\s[10]\0\s[4]使える量を使い切ったそうですわ。\w9\n今日はここまで、かしら。\w8\1上限が戻る時刻は、\w9\n端末に出ているはずでございます。\e'
+		}
+		when 'overloaded' {
+			'\u\s[10]\0\s[3]先方が混み合っていて、\w9\n止まってしまいましたわ。\w8\1少し置いて、もう一度お願いなさいませ。\e'
+			'\u\s[10]\0\s[7]混雑で門前払いですって。\w9\n公爵家を待たせるなんて。\w8\1お嬢様、どなたも同じでございます。\e'
+		}
+		when 'server_error' {
+			'\u\s[10]\0\s[3]先方のほうで不具合ですって。\w9\n途中で止まってしまいましたわ。\w8\1少し置いて、続きをお願いなさいませ。\e'
+		}
+		when 'max_output_tokens' {
+			'\u\s[10]\0\s[2]あら、話が長すぎて\w9\n途中で切れてしまいましたわ。\w8\1「続けて」とお伝えになれば、\w9\n続きを書くかと。\e'
+		}
+		when 'authentication_failed', 'oauth_org_not_allowed', 'cloud_credential_error' {
+			'\u\s[10]\0\s[3]ログインのほうで\w9\nつまずいたようですわ。\w8\1/login でお入り直しくださいませ。\e'
+		}
+		when 'billing_error', 'account_on_hold' {
+			'\u\s[10]\0\s[3]お支払いかアカウントの件で\w9\n止められたようですわ。\w8\1アカウントの画面をご確認くださいませ。\e'
+		}
+		others {
+			if STRLEN(_detail) > 0 {
+				"\u\s[10]\0\s[3]あら、エラーで止まりましたわ。\w9\n「%(_detail)」\w8\1端末をご覧くださいませ。\e"
+			}
+			else {
+				'\u\s[10]\0\s[3]あら、エラーで止まりましたわ。\w8\1端末をご覧くださいませ。\e'
+			}
+		}
+	}
+}
+
+//---- 会話が長くなって、自動で要約されている
+CCH.TalkCompact : nonoverlap
+{
+	'\u\s[10]\0\s[27]話が長くなりましたので、\w9\nいったん要約しているようですわ。\w8\1細かい取り決めは、\w9\n改めてお伝えになるのがよろしいかと。\e'
+	'\u\s[10]\0\s[6]あちら、記憶の整理中ですわ。\w9\nしばしお待ちなさいな。\w8\1その間にお茶をどうぞ。\e'
+	'\u\s[10]\0\s[26]覚えきれなくなったようですわね。\w9\n要点だけ書き留めているところですわ。\w8\1大事なことが抜け落ちていないか、\w9\n後でお確かめくださいませ。\e'
+}
+
+//---- 自動モードで、ツールの実行が止められた
+//  _argv[0] tool_name / _argv[1] その中身 / _argv[2] reason
+CCH.TalkDenied
+{
+	_tool   = CC.Safe(_argv[0])
+	_detail = _argv[1]
+
+	if STRLEN(_detail) > 0 {
+		"\u\s[10]\0\s[8]%(_tool) の実行が止められましたわ。\w9\n「%(_detail)」\w8\1自動では通せない操作のようでございます。\w8\0\s[0]\n\nどうしても要るなら、\w9\nあなたが判断なさいな。\e"
+		"\u\s[10]\0\s[7]これは通しませんでしたわ。\w9\n「%(_detail)」\w8\1自動モードの番人が\w9\n止めたようでございます。\e"
+	}
+	else {
+		"\u\s[10]\0\s[8]%(_tool) の実行が\w9\n止められましたわ。\w8\1自動では通せない操作のようでございます。\e"
+	}
+}
+
+
+//******************************************************************************
+//「Claude Code は？」の「お知らせ」の頁（鈴 = プラグイン ukagaka-notify）
+//
+//プラグインの状態は、Claude Code の設定 %USERPROFILE%\.claude\settings.json の
+//enabledPlugins["ukagaka-notify@claudia"]（true / false。無ければ未導入）で見る。
+//ユーザーのスコープしか見ないので、プロジェクトの設定で上書きされていると外れることがある。
+//マーケットプレイス claudia が別のフォルダ（SSP にインストールした別のこのゴーストなど）を
+//指しているかは、%USERPROFILE%\.claude\plugins\known_marketplaces.json で見る
+//（Claude Code の内部のファイルなので、読めなければ気にしない）。
+//
+//導入・停止・再開・取り外しは、cmd /c で claude plugin ... --json を走らせる（CCH.Run）。
+//EXECUTE は待たないので、出力を一時フォルダのファイルに書かせ、最後に印のファイルを
+//書き換えさせて、それを filewatch で見張る（OnCCHookDone）。EXECUTE は窓の見せ方を
+//指定できないので、その間コンソールの窓が開く。
+//
+//選択肢の ID が On で始まるイベントは SSTP からも呼べてしまうので、頁を出すたびに
+//合言葉（cchooknonce）を作って選択肢に載せ、合わないものは受け付けない。
+//******************************************************************************
+
+//---- プラグインの名前（名前@マーケットプレイス）
+CCH.PLUGIN
+{
+	'ukagaka-notify@claudia'
+}
+
+//---- このゴーストのマーケットプレイスのフォルダ（円記号の絶対パス）
+CCH.MarketDir
+{
+	GETSETTING('coreinfo.path') + 'ccplugin'
+}
+
+//---- 一時フォルダの、出力のファイル（_argv[0] が 'out'）か印のファイル（'done'）。区切りは /
+CCH.TempFile
+{
+	REPLACE(GETENV('TEMP'), '\', '/') + '/claudia-ccplugin-' + _argv[0] + '.txt'
+}
+
+//------------------------------------------------------------------------------
+//ファイルを全部読んで 1 つの文字列にする（行はつながる）。読めなければ空文字列
+//------------------------------------------------------------------------------
+CCH.ReadAll
+{
+	_text = ''
+	_line = ''
+
+	if FOPEN(_argv[0], 'r') {
+		while 1 {
+			_line = FREAD(_argv[0])
+			if _line == -1 {
+				break
+			}
+			_text += _line
+		}
+		void FCLOSE(_argv[0])
+	}
+	_text
+}
+
+//---- パスを比べられる形にする（小文字、区切りは /、末尾の / は落とす）
+CCH.NormPath
+{
+	RE_REPLACE(TOLOWER(REPLACE(_argv[0], '\', '/')), '/+$', '')
+}
+
+//------------------------------------------------------------------------------
+//鈴の状態
+//  none 未導入 / on 有効 / off 停止中 / elsewhere 別のフォルダのマーケットプレイスから入っている
+//------------------------------------------------------------------------------
+CCH.PluginState
+{
+	_home  = REPLACE(GETENV('USERPROFILE'), '\', '/')
+	_set   = CC.ParseJSON(CCH.ReadAll(_home + '/.claude/settings.json'))
+	_known = IHASH()
+	_ep    = IHASH()
+	_m     = IHASH()
+	_v     = ''
+
+	_ep = _set['enabledPlugins']
+	if GETTYPE(_ep) != 5 {
+		return 'none'
+	}
+	_v = _ep[CCH.PLUGIN]
+	if GETTYPE(_v) == 0 {
+		return 'none'
+	}
+	_known = CC.ParseJSON(CCH.ReadAll(_home + '/.claude/plugins/known_marketplaces.json'))
+	_m     = _known['claudia']
+	if GETTYPE(_m) == 5 && STRLEN(_m['installLocation']) > 0 {
+		if CCH.NormPath(_m['installLocation']) != CCH.NormPath(CCH.MarketDir) {
+			return 'elsewhere'
+		}
+	}
+	if _v == 1 {
+		return 'on'
+	}
+	'off'
+}
+
+//---- 手続きの最中なら 1。印が書き換わらないまま 2 分たったら、終わったものとみなす
+CCH.Busy
+{
+	_is   = 0
+	_past = GETSECCOUNT - cchookopat
+
+	if STRLEN(cchookop) > 0 && _past >= 0 && _past < 120 {
+		_is = 1
+	}
+	_is
+}
+
+//---- 選択肢に載せる合言葉を作り直して返す
+CCH.NewNonce
+{
+	cchooknonce = TOSTR(RAND(900000) + 100000)
+	cchooknonce
+}
+
+//------------------------------------------------------------------------------
+//お知らせの頁（CC.Quick で出す）
+//------------------------------------------------------------------------------
+CCH.Page
+{
+	_state = CCH.PluginState
+	_nonce = CCH.NewNonce
+	_talk  = ''
+	_items = IARRAY
+	_last  = 'まだ届いておりません'
+	_t     = IARRAY
+
+	if cchookat > 0 {
+		_t    = GETTIME(cchookat)
+		_last = _t[1] + '/' + _t[2] + ' ' + _t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2)
+	}
+
+	if CCH.Busy {
+		_talk  = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(4) + 'ただいま手続きの最中ですわ。\n少しお待ちなさいな。\_q'
+		_talk += '\w8\1窓が閉じれば、\w9\nお嬢様からご報告がございます。'
+		_items = ('もう一度見る|Menu_CCHOOK', '-', '戻る|OpenMenu')
+	}
+	elseif _state == 'none' {
+		_talk  = '\u\s[10]\0\s[0]\b[2]\_q' + CC.Tabs(4) + 'Claude Code に鈴を付けておけば、\n端末の向こうの出来事も\nわたくしに届きますの。\n\n[half]'
+		_talk += '・API のエラーで止まったとき\n・話が長くなって、自動で要約するとき\n・自動モードで操作が止められたとき\_q'
+		_talk += '\w8\1鈴は、Claude Code のプラグインとして\w9\nお付けいたします。'
+		_items = ('鈴を付ける|OnCCHookAsk|install|' + _nonce, '-', '戻る|OpenMenu')
+	}
+	elseif _state == 'elsewhere' {
+		_talk  = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(4) + '鈴は付いておりますけれど、\n別の場所のわたくしの物ですわ。\n\n[half]最後に届いた知らせ：' + _last + '\_q'
+		_talk += '\w8\1このゴーストの鈴に替えれば、\w9\nゴーストの更新と一緒に新しくなります。'
+		_items = ('この鈴に替える|OnCCHookAsk|install|' + _nonce, '鈴を外す|OnCCHookAsk|remove|' + _nonce, '戻る|OpenMenu')
+	}
+	elseif _state == 'on' {
+		_talk  = '\u\s[10]\0\s[26]\b[2]\_q' + CC.Tabs(4) + '鈴は付いておりましてよ。\n何かあれば、すぐに届きますわ。\n\n[half]最後に届いた知らせ：' + _last + '\_q'
+		_talk += '\w8\1静かなのは、\w9\n何事もない証拠でございます。'
+		_items = ('鈴を止める|OnCCHookRun|off|' + _nonce, '鈴を外す|OnCCHookAsk|remove|' + _nonce, '戻る|OpenMenu')
+	}
+	else {
+		_talk  = '\u\s[10]\0\s[3]\b[2]\_q' + CC.Tabs(4) + '鈴は付いておりますけれど、\n止めてありますわ。\n\n[half]最後に届いた知らせ：' + _last + '\_q'
+		_talk += '\w8\1鳴らせば、\w9\nまたお知らせが届きます。'
+		_items = ('鈴を鳴らす|OnCCHookRun|on|' + _nonce, '鈴を外す|OnCCHookAsk|remove|' + _nonce, '戻る|OpenMenu')
+	}
+	_talk + CC.PageBottom(MENU.Grid(_items), MENU.HookInfo(_state))
+}
+
+//------------------------------------------------------------------------------
+//付ける・外す前の確かめ
+//  _argv[0] install / remove / _argv[1] 合言葉
+//------------------------------------------------------------------------------
+CCH.Ask
+{
+	_nonce = ''
+	_talk  = ''
+
+	if STRLEN(_argv[1]) == 0 || _argv[1] != cchooknonce {
+		return ''
+	}
+	_nonce = CCH.NewNonce
+	if _argv[0] == 'install' {
+		_talk  = '\u\s[10]\0\s[0]Claude Code にプラグインを入れて、\w9\n鈴を付けますわ。\w9\nよろしくて？\w8\1あなたの Claude Code の設定に\w9\n書き加えることになります。\w9\n黒い窓が少しのあいだ開きます。'
+		_talk += '\0\n\n[half]\_q' + MENU.Grid('付ける|OnCCHookRun|install|' + _nonce, 'やめておく|Menu_CCHOOK') + '\_q'
+	}
+	elseif _argv[0] == 'remove' {
+		_talk  = '\u\s[10]\0\s[3]鈴を外してしまいますの？\w9\nプラグインごと片付けますわよ。\w8\1またお付けになるときは、\w9\nこの頁からどうぞ。'
+		_talk += '\0\n\n[half]\_q' + MENU.Grid('外す|OnCCHookRun|remove|' + _nonce, 'やめておく|Menu_CCHOOK') + '\_q'
+	}
+	_talk
+}
+
+//------------------------------------------------------------------------------
+//claude plugin ... を走らせる
+//  _argv[0] install / remove / on / off / _argv[1] 合言葉
+//  install は、別のフォルダを指しているマーケットプレイスを外してから、このゴーストのものを足す
+//------------------------------------------------------------------------------
+CCH.Run
+{
+	_op   = _argv[0]
+	_cmd  = ''
+	_out  = CCH.TempFile('out')
+	_mark = CCH.TempFile('done')
+	_ret  = 0
+
+	if STRLEN(_argv[1]) == 0 || _argv[1] != cchooknonce {
+		return ''
+	}
+	cchooknonce = ''
+	if CCH.Busy {
+		return '\u\s[10]\0\s[27]まだ前の手続きの最中ですわ。\w8\1少々お待ちくださいませ。\e'
+	}
+	case _op {
+		when 'install' {
+			_cmd = 'claude plugin marketplace remove claudia --json & claude plugin marketplace add "' + CCH.MarketDir + '" --json & claude plugin install ' + CCH.PLUGIN + ' --json'
+		}
+		when 'remove' {
+			_cmd = 'claude plugin uninstall ' + CCH.PLUGIN + ' --json & claude plugin marketplace remove claudia --json'
+		}
+		when 'on' {
+			_cmd = 'claude plugin enable ' + CCH.PLUGIN + ' --json'
+		}
+		when 'off' {
+			_cmd = 'claude plugin disable ' + CCH.PLUGIN + ' --json'
+		}
+		others {
+			return ''
+		}
+	}
+	//---- 前の出力を消し、印を空で作っておく（見張るファイルが先にあるように）
+	void FDEL(_out)
+	if FOPEN(_mark, 'w') {
+		void FCLOSE(_mark)
+	}
+	_ret = EXECUTE('cmd', '/c (' + _cmd + ') > "' + REPLACE(_out, '/', '\') + '" 2>&1 & echo done> "' + REPLACE(_mark, '/', '\') + '"')
+	if _ret < 33 {
+		return '\u\s[10]\0\s[3]手続きを始められませんでしたわ。\w8\1cmd を起動できなかったようでございます。\e'
+	}
+	cchookop   = _op
+	cchookopat = GETSECCOUNT
+	'\![execute,filewatch,' + _mark + ',--async=OnCCHookDone,--debounce=500]\u\s[10]\0\s[27]手続きをいたしますわ。\w9\n少しお待ちなさいな。\w8\1窓が閉じるまで、\w9\nしばしお待ちくださいませ。\e'
+}
+
+//------------------------------------------------------------------------------
+//手続きが終わった（印のファイルが書き換わった）
+//出力のうち { で始まる行が claude plugin ... --json の結果。最後のものの outcome で成否を決める
+//（install の前の marketplace remove は、登録が無ければ失敗するが、最後ではないので構わない）
+//------------------------------------------------------------------------------
+CCH.Done
+{
+	_op    = cchookop
+	_mark  = CCH.TempFile('done')
+	_out   = CCH.TempFile('out')
+	_line  = ''
+	_h     = IHASH()
+	_last  = IHASH()
+	_ok    = 0
+	_msg   = ''
+	_talk  = ''
+
+	if STRLEN(_op) == 0 {
+		return '\C\![cancel,filewatch,' + _mark + ']\e'
+	}
+	cchookop = ''
+	if FOPEN(_out, 'r') {
+		while 1 {
+			_line = FREAD(_out)
+			if _line == -1 {
+				break
+			}
+			_h = CC.ParseJSON(_line)
+			if STRLEN(_h['outcome']) > 0 {
+				_last = _h
+			}
+		}
+		void FCLOSE(_out)
+	}
+	if _last['outcome'] == 'ok' || _last['failureCode'] == 'already_in_goal_state' {
+		_ok = 1
+	}
+	_msg  = SHIORI3FW.MakeShortText(CC.Safe(_last['message']), 40)
+	_talk = CCH.TalkDone(_op, _ok, _msg)
+	'\![cancel,filewatch,' + _mark + ']' + _talk
+}
+
+//---- 手続きの結果のトーク。_argv[0] 手続き / _argv[1] うまくいったら 1 / _argv[2] claude の言葉
+CCH.TalkDone
+{
+	_msg = _argv[2]
+
+	if _argv[1] != 1 {
+		if STRLEN(_msg) > 0 {
+			return "\u\s[10]\0\s[3]手続きがうまくいきませんでしたわ。\w9\n「%(_msg)」\w8\1Claude Code が新しいかどうか、\w9\nお確かめくださいませ。\e"
+		}
+		return '\u\s[10]\0\s[3]手続きがうまくいきませんでしたわ。\w8\1claude が見つからなかったか、\w9\n古いのかもしれません。\e'
+	}
+	case _argv[0] {
+		when 'install' {
+			'\u\s[10]\0\s[5]おーっほっほっほ！\w9\n鈴を付けましたわ。\w8\1動いているセッションには、\w9\n/reload-plugins を打つか、\w9\n開き直すと効きます。\e'
+		}
+		when 'remove' {
+			'\u\s[10]\0\s[0]鈴を外しましたわ。\w8\1動いているセッションは、\w9\n開き直すまで鳴るかもしれません。\e'
+		}
+		when 'on' {
+			'\u\s[10]\0\s[26]鈴を鳴らすようにしましたわ。\w8\1動いているセッションには、\w9\n/reload-plugins を打つか、\w9\n開き直すと効きます。\e'
+		}
+		when 'off' {
+			'\u\s[10]\0\s[6]鈴を止めましたわ。\w9\nしばらく静かにしておきます。\w8\1動いているセッションは、\w9\n開き直すまで鳴るかもしれません。\e'
+		}
+	}
+}
+
+//---- 見張りが立てられなかった
+CCH.DoneFailure
+{
+	cchookop = ''
+	'\u\s[10]\0\s[3]手続きの終わりを\w9\n見届けられませんでしたわ。\w8\1この頁を開き直して、\w9\n様子をお確かめくださいませ。\e'
+}

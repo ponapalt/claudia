@@ -1,0 +1,15 @@
+{
+  "name": "claudia",
+  "description": "Claude Code plugins bundled with the ukagaka ghost Claudia",
+  "owner": {
+    "name": "ponapalt&claudia",
+    "url": "https://github.com/ponapalt/claudia"
+  },
+  "plugins": [
+    {
+      "name": "ukagaka-notify",
+      "source": "./plugins/ukagaka-notify",
+      "description": "Forwards Claude Code hook events to a running ukagaka ghost (SSP) as SSTP NOTIFY OnClaudeCodeHook."
+    }
+  ]
+}
