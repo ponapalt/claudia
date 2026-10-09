@@ -177,6 +177,7 @@
 形の寸法と文字の入る量は `work/balloon/make-balloon.ps1` の先頭のコメントにある。
 
 - **画像の大きさ、本体の形、`descript.txt` の色以外の行（位置、有効範囲、折り返しなど）は変えない。** 1px 単位で合わせてある。色を変えるときは `work/balloon/text/` の `descript.txt` と `kero-override.txt` の `*.color.r/g/b` の行だけを書き換え、`make-balloon.ps1` で作り直す。作り直したら、画像の幅と高さがコミット済みのものと同じか確かめる。
+- 入力ボックス（`balloonc0`〜`4`）は 382x48 で、左上に用途の英字（`Send` など）を斜体で置く。複数行の入力ボックス（`balloonc5`、`\![open,textareabox]`、SSP 2.9.10 から）は同じ作りで 382x200、英字は `Letter`。入力欄と、SSP がその下端に並べる OK と × のボタンの範囲は `balloonc5s.txt`（`work/balloon/text/textarea.txt` から作る）の `communicatebox` に書く。
 - しっぽは羽根ペンの先の形。辺はつけ根で本体の縁に沿って出て、外へ曲がり、細い先へすぼまる。出っ張りは 8px（本体の外の 9px の余白に収める）。
 - しっぽのつけ根の、内側の細罫の上に小さな菱を一つ置く（クローディアは金、アンソニーは銀）。頭上版では下の辺の中央の菱の代わりになる。
 

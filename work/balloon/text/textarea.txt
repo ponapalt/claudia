@@ -1,0 +1,11 @@
+// 複数行の入力ボックス（\![open,textareabox]、SSP 2.9.10 から）の設定。
+// このファイルは work/balloon/text/textarea.txt から balloonc5s.txt として配置される。
+// communicatebox は、入力欄と、その下端に SSP が並べるボタン（OK と ×）の行を合わせた範囲。
+// descript.txt の communicatebox（1 行の入力ボックス向け）は引き継がれないので、ここに書く。
+// 文字の大きさは descript.txt の font.height、書体と色は communicatebox.font.* と
+// communicatebox.background.color をそのまま使う。
+
+communicatebox.x,10
+communicatebox.y,17
+communicatebox.width,362
+communicatebox.height,176

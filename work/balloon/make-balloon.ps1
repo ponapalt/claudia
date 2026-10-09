@@ -371,6 +371,7 @@ function Copy-TextFiles {
     }
     $kero = Join-Path $TextDir 'kero-override.txt'
     foreach ($n in $KeroFiles) { Copy-AsCrLf $kero (Join-Path $Dir $n) }
+    Copy-AsCrLf (Join-Path $TextDir 'textarea.txt') (Join-Path $Dir 'balloonc5s.txt')
 }
 
 # --- parts shared by both versions --------------------------------------
@@ -385,6 +386,13 @@ function Build-Common {
         [Gen]::Caption($bm, $captions[$i], $capColor, 11.0, 1.0, 12.0)
         Save-Png $bm (Join-Path $Dir "balloonc$i.png")
     }
+    # multi-line input box (\![open,textareabox], SSP 2.9.10): same frame, taller.
+    # balloonc5s.txt puts the input area and the OK / close button row SSP draws
+    # under it at x 10, y 17, 362 x 176 (about 7 lines at font.height 15).
+    $rc = New-Object System.Drawing.RectangleF(1.0, 1.0, 380.0, 198.0)
+    $bm = [Gen]::Make(382, 200, $rc, 10.0, 0, 0.0, 0.0, 0.0, $themeC, 4.0, $false)
+    [Gen]::Caption($bm, 'Letter', $capColor, 11.0, 1.0, 12.0)
+    Save-Png $bm (Join-Path $Dir 'balloonc5.png')
 
     $inkS = RGB 180 83 47
     $edgeS = RGB 140 59 31
