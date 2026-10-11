@@ -137,11 +137,26 @@ _result = FUNCTIONEX('kawari8.dll', 'こんにちは')
 // 追加の戻り値は valueex[0], valueex[1], ... で参照
 ```
 
+#### ベースウェアの内蔵モジュール（SAORI over DirectSSTP）
+
+`_argv[0]` が `internal_` で始まるとき（`internal_crypto`、`internal_time.dll` など。大文字小文字は区別せず、末尾の `.dll` は付いていてもよい）は、DLLを読み込まず、`DIRECTSSTP` でベースウェア（SSP 2.9.13以降）の内蔵モジュールを呼びます。書き方、戻り値、`valueex`、`LIB.STATUSCODE` は、DLLのSAORIと同じです。モジュールと関数は [SAORI over DirectSSTP](https://ssp.shillest.net/ukadoc/manual/spec_saori_ex.html) を参照してください。
+
+```
+_hash = FUNCTIONEX('internal_crypto', 'Digest', 'sha256', 'abc')
+_text = FUNCTIONEX('internal_time', 'Format', 0, '%Y/%m/%d', '--tz=+09:00')
+```
+
+- そのモジュールが使えないとき（旧SSP、SSP以外のベースウェア、知らないモジュール）は `0` を返します。使えるかどうかは、モジュールごとに最初の1回だけ `GET Version SAORI/1.0` で確かめて覚えます。ゴーストの窓（`SHIORI3FW.HWnd[0]`）がまだ分からない起動直後は、覚えずに `0` を返します。
+- 失敗したとき（400、500）の `Result` は空で、`LIB.STATUSCODE` に `400 Bad Request` などが入ります。失敗の理由（`ErrorDescription`）は `var.lib.key` / `var.lib.value` から読めます。
+- 引数に改行（CR・LF）が含まれるときは、ヘッダを書き足せてしまうので送らず、`0` を返します。改行や前後の空白を含むデータは、`--data-in=base64` などの形式で渡してください。
+- 文字コードはUTF-8で固定です。
+- 時間のかかる処理（`DeriveKey`、`HashPassword` など）には `--async=識別子` を付けてください。結果はあとでイベント（`OnInternalSaoriComplete` など）で届き、`FUNCTIONEX` の戻り値は空（`LIB.STATUSCODE` は `204 No Content`）です。
+
 ---
 
 ### `SAORI(dll名, 引数0, 引数1, ...)`
 
-`FUNCTIONEX` のシノニム（別名）です。書き方が `FUNCTIONEX` と同一です。
+`FUNCTIONEX` のシノニム（別名）です。書き方が `FUNCTIONEX` と同一です（`internal_` の内蔵モジュールも同じ）。
 
 ```
 _result = SAORI('kawari8.dll', 'こんにちは')
@@ -151,11 +166,33 @@ _result = SAORI('kawari8.dll', 'こんにちは')
 
 ## 4. ベースウェアプロパティ関数
 
-SSPなど、DIRECTSSTP対応ベースウェアのプロパティを読み書きします。
+SSPなど、DIRECTSSTP対応ベースウェアのプロパティを読み書きしたり、EXECUTE SSTPのコマンドを実行したりします。
+
+### `EXECUTE_SSTP(コマンド名, 引数0, 引数1, ...)`
+
+DIRECTSSTPでベースウェアに `EXECUTE SSTP/1.1` のリクエストを送り、結果（追加データ）を返します。2つめ以降の引数は `Reference0`、`Reference1`、… として送られます。使えるコマンドはベースウェアのSSTP仕様（`GetVersion`、`GetGhostNameList`、`GetStatus`、`GetCookie` など）を参照してください。
+
+- **引数**：`_argv[0]` — コマンド名、`_argv[1]` 以降 — `Reference0` 以降に入れる値
+- **戻り値**：成功時（ステータスが2xx）は空行より後ろの追加データ（末尾の改行は取り除く）、失敗時は空文字列。一覧を返すコマンドの結果は `C_CRLF` 区切りの文字列になります
+- **結果の変数**：`SSTP.STATUSCODE` にステータス行の結果（`200 OK`、`501 Not Implemented` など）、`SSTP.STATUS` にその数値が入ります。送信できなかったときは `''` と `0` です
+
+追加データの無いコマンドは、成功しても空文字列を返すので、成否は `SSTP.STATUS` で確かめてください。
+
+```
+_ver = EXECUTE_SSTP('GetShortVersion')
+_ghosts = SPLIT(EXECUTE_SSTP('GetGhostNameList'), C_CRLF)
+
+_dummy = EXECUTE_SSTP('SetCookie', 'mykey', 'value')
+if SSTP.STATUS == 200 || SSTP.STATUS == 204 {
+	// 成功
+}
+```
+
+---
 
 ### `GET_PROPERTY(プロパティ名)`
 
-指定したベースウェアのプロパティ値を取得します。
+指定したベースウェアのプロパティ値を取得します。`EXECUTE_SSTP('GetProperty', プロパティ名)` と同じで、`SSTP.STATUSCODE` と `SSTP.STATUS` も同じように入ります（`SET_PROPERTY` も同様）。
 
 - **引数**：`_argv[0]` — プロパティ名
 - **戻り値**：成功時はプロパティ値の文字列、失敗時は空文字列
