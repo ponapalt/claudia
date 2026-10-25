@@ -19,9 +19,8 @@
 
 ## 開発
 
-紺野ややめ由来の、AI エージェント向け開発キットが入っています。
+AI エージェント向けのスキル [ukagaka-developer](https://github.com/ukatech/ukagaka-developer) で開発しています（スキルはこのリポジトリに入っていません）。
 
 - [GHOST.md](GHOST.md): このゴーストに固有の情報（キャラクター、サーフェス、辞書の構成）
 - [AGENTS.md](AGENTS.md): エージェント向けの指示書
-- [DEVKIT-GUIDE.md](DEVKIT-GUIDE.md): 開発キットの使い方
 - [site/](site/): 紹介ページ（GitHub Pages。`.github/workflows/pages.yml` で公開）

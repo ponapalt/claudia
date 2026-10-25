@@ -18,12 +18,32 @@ param(
     [string[]]$Path,
     [ValidateRange(1, 255)]
     [int]$Threshold = 240,
-    [switch]$DryRun
+    [switch]$DryRun,
+    # The folder of the ukagaka-developer skill (the one that holds SKILL.md). Default: UKADEV_SKILL_DIR, or the
+    # newest copy in the plugin cache of Claude Code.
+    [string]$SkillDir
 )
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-. (Join-Path $root 'tools/lib/common.ps1')
-. (Join-Path $root 'tools/lib/image-engine.ps1')
+
+function Find-SkillScripts([string]$Explicit) {
+    $candidates = @()
+    if ($Explicit) { $candidates += (Join-Path $Explicit 'scripts') }
+    if ($env:UKADEV_SKILL_DIR) { $candidates += (Join-Path $env:UKADEV_SKILL_DIR 'scripts') }
+    $cache = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.claude/plugins/cache/ukagaka-developer/ukagaka-developer'
+    if (Test-Path -LiteralPath $cache -PathType Container) {
+        $candidates += @(Get-ChildItem -LiteralPath $cache -Directory | Sort-Object LastWriteTime -Descending |
+            ForEach-Object { Join-Path $_.FullName 'skills/ukagaka-developer/scripts' })
+    }
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath (Join-Path $candidate 'lib/image-engine.ps1') -PathType Leaf) { return $candidate }
+    }
+    return $null
+}
+$scripts = Find-SkillScripts $SkillDir
+if (-not $scripts) { throw 'the ukagaka-developer skill was not found; pass -SkillDir <folder with SKILL.md> or set UKADEV_SKILL_DIR' }
+. (Join-Path $scripts 'lib/common.ps1')
+. (Join-Path $scripts 'lib/image-engine.ps1')
 Import-DevkitImageEngine
 
 if (-not ('ClaudiaFixAlpha' -as [type])) {

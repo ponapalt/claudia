@@ -1,7 +1,7 @@
 # GHOST.md
 
 「悪役令嬢クローディア」に固有の情報です。AI エージェントは、作業の前に `AGENTS.md` とあわせて読みます。
-作者が自由に書き換えるファイルで、開発キットの更新（`tools/update-devkit.ps1`）で上書きされることはありません。
+作者が自由に書き換えるファイルです。
 
 ## このゴーストについて
 
@@ -12,7 +12,7 @@
 - ネットワーク更新: `https://raw.githubusercontent.com/ponapalt/claudia/main/`（`On_homeurl` は `ghost/master/dic/normal/yaya_homeurl.dic` と `ghost/master/dic/emerg/yaya_homeurl.dic` の 2 か所）
   - GitHub の raw から配るので、`updates2.dau` と `updates.txt` を**コミットする**。`.gitignore` からは外してある。
   - 同梱バルーン `claudia/` と `claudia_vertical/` は、それぞれの `descript.txt` の `homeurl`（`.../main/claudia/`、`.../main/claudia_vertical/`）から別に更新される。ゴーストの更新からは `.updateignore` で外してある。
-  - 配布物に入るファイルを変えたら、**コミットの前に毎回** `powershell -NoProfile -ExecutionPolicy Bypass -File tools/claudia-updates.ps1` を実行し、できた更新ファイルを同じコミットに含める。このスクリプトが、ルート（ゴースト）、`claudia/`、`claudia_vertical/` の 3 か所の更新ファイルを一度に作り直す（開発キットのファイルではない、このゴースト専用のスクリプト）。
+  - 配布物に入るファイルを変えたら、**コミットの前に毎回** `powershell -NoProfile -ExecutionPolicy Bypass -File work/claudia-updates.ps1` を実行し、できた更新ファイルを同じコミットに含める。このスクリプトが、ルート（ゴースト）、`claudia/`、`claudia_vertical/` の 3 か所の更新ファイルを一度に作り直す（このゴースト専用のスクリプトで、スキル `ukagaka-developer` の `build-nar.ps1` を使う。スキルは `-SkillDir`、環境変数 `UKADEV_SKILL_DIR`、Claude Code のプラグインのキャッシュの順に探す）。
 
 ## ライセンス
 

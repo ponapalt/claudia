@@ -1,30 +1,26 @@
 # Files excluded when creating the .nar (gitignore syntax).
-# Used by SSP and tools/build-nar.ps1. .updateignore includes this file.
+# Used by SSP and by build-nar.ps1 of ukagaka-developer. .updateignore includes this file.
 # https://ssp.shillest.net/ukadoc/manual/descript_install.html
 
-# development kit (tools/devkit.narignore is replaced when the kit is updated)
-include:tools/devkit.narignore
-
-# the whole development kit is kept out of the nar and network updates;
-# it lives only in the repository (list from DEVKIT-GUIDE.md)
+# files for developing the ghost with ukagaka-developer (not shipped in the nar or in network updates)
 /AGENTS.md
 /CLAUDE.md
-/DEVKIT-GUIDE.md
 /GHOST.md
-/docs/agents/
 /.mcp.json
 /.claude/
+/.agents/
+/build/
+
+# balloon images of sstp.ps1 -Balloon, left only when the script was stopped midway
+/ghost/master/devkit-balloon-*/
+
+# the repository's own files; only in the repository
 /.github/
-/tools/
 
 # editor and git settings; only in the repository
 /.editorconfig
 /.gitattributes
 /.gitignore
-
-# notes for developing the kit itself; only in the repository
-/DEVKIT-MAINTAINING.md
-/docs/devkit-maintaining/
 
 # git metadata (ghost/master/dic/system is a plain folder in the nar, not a submodule)
 .git
@@ -50,3 +46,16 @@ yaya_variable.cfg
 
 # introduction page for GitHub Pages (.github/workflows/pages.yml); only in the repository
 /site/
+
+# leftovers of a YAYA system dictionary update, and files of the system dictionary repository
+*.yaya-dic-new
+/ghost/master/dic/system/.github/
+/ghost/master/dic/system/.vscode/
+/ghost/master/dic/system/.gitattributes
+/ghost/master/dic/system/LICENSE
+/ghost/master/dic/system/README.md
+/ghost/master/system/.github/
+/ghost/master/system/.vscode/
+/ghost/master/system/.gitattributes
+/ghost/master/system/LICENSE
+/ghost/master/system/README.md

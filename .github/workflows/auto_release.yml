@@ -44,10 +44,14 @@ jobs:
             gh api -X DELETE repos/${{ github.repository }}/git/refs/tags/$tag
           done
       
+      - name: get ukagaka-developer
+        shell: pwsh
+        run: git clone --depth 1 https://github.com/ukatech/ukagaka-developer.git "$env:RUNNER_TEMP/ukagaka-developer"
+
       - name: build nar
         # Files to exclude are listed in .narignore
         shell: pwsh
-        run: ./tools/build-nar.ps1 -OutFile $env:NAR_NAME
+        run: '& "$env:RUNNER_TEMP/ukagaka-developer/skills/ukagaka-developer/scripts/build-nar.ps1" -OutFile $env:NAR_NAME -GhostRoot $env:GITHUB_WORKSPACE'
       
       - name: Create and upload release
         uses: softprops/action-gh-release@v2

@@ -1,7 +1,7 @@
 charset,Shift_JIS
-file,.narignoree71911803d69dcfe1efcdb46a545cd49size=1284date=2026-09-27T04:18:30
-file,.updateignore58c4a4b2295e7e74300ac7642b5554f5size=333date=2026-09-21T07:24:53
-file,README.mdf9e4bf06f56835f0cc37fa99d7e36f09size=1322date=2026-09-27T04:28:02
+file,.narignoreee1a48c30890d170b5265dee3e030a53size=1640date=2026-10-25T20:22:57
+file,.updateignore5b364fcb49f69ac26c9cc1193ca3be81size=298date=2026-10-25T20:22:57
+file,README.mdd7b7800c0e201cba14cb7549442c6987size=1359date=2026-10-25T20:22:57
 file,delete.txt4d000e74e6c6d7ec0a1c3094b02b6bedsize=173date=2026-09-26T07:42:32
 file,install.txte58e476ee748c865082fbf868eab0b51size=142date=2026-09-21T07:26:48
 file,readme-aya.txtca7ca11cf43709352523e72259116a8asize=588date=2026-09-19T18:20:56
