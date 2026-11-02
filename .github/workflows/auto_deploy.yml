@@ -6,7 +6,9 @@ name: auto deploy
 # Set "Settings > Pages > Build and deployment > Source" of the repository to "GitHub Actions".
 #
 # updates2.dau / updates.txt at the root, in claudia/ and in claudia_vertical/ are committed, frozen files for
-# users of the old homeurl (raw.githubusercontent.com). Do not delete or regenerate them.
+# users of the old homeurl (raw.githubusercontent.com). They list only the files that carry the new homeurl
+# (yaya_homeurl.dic, balloon descript.txt) and delete.txt. Do not delete or regenerate them, and do not change
+# the listed files until those users have moved on (the MD5 in the list would no longer match).
 
 on:
   workflow_run:
