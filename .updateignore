@@ -5,6 +5,8 @@ include:.narignore
 # delete.txt is needed by network updates
 !/delete.txt
 
-# remove balloons from update
+# The balloons that come with the nar are installed to balloon/ by SSP; a network update would only
+# put their files into folders inside the ghost folder. Each has its own update files (homeurl in its
+# descript.txt), which .github/scripts/build-site.ps1 makes from install.txt.
 /claudia/
 /claudia_vertical/

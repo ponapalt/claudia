@@ -22,6 +22,10 @@
 /.gitattributes
 /.gitignore
 
+# these two files themselves; only in the repository
+/.narignore
+/.updateignore
+
 # git metadata (ghost/master/dic/system is a plain folder in the nar, not a submodule)
 .git
 .gitmodules
@@ -44,7 +48,7 @@ yaya_variable.cfg
 # design notes for developing the ghost; only in the repository
 /docs/design-system.md
 
-# introduction page for GitHub Pages (.github/workflows/pages.yml); only in the repository
+# introduction page for GitHub Pages (copied into the site by .github/scripts/build-site.ps1); only in the repository
 /site/
 
 # leftovers of a YAYA system dictionary update, and files of the system dictionary repository

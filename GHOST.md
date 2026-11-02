@@ -9,10 +9,12 @@
 - テンプレートゴースト「紺野ややめ」（https://github.com/YAYA-shiori/konnoyayame ）をもとに作成した。
 - 作者: ponapalt&claudia
 - リポジトリ: https://github.com/ponapalt/claudia
-- ネットワーク更新: `https://raw.githubusercontent.com/ponapalt/claudia/main/`（`On_homeurl` は `ghost/master/dic/normal/yaya_homeurl.dic` と `ghost/master/dic/emerg/yaya_homeurl.dic` の 2 か所）
-  - GitHub の raw から配るので、`updates2.dau` と `updates.txt` を**コミットする**。`.gitignore` からは外してある。
-  - 同梱バルーン `claudia/` と `claudia_vertical/` は、それぞれの `descript.txt` の `homeurl`（`.../main/claudia/`、`.../main/claudia_vertical/`）から別に更新される。ゴーストの更新からは `.updateignore` で外してある。
-  - 配布物に入るファイルを変えたら、**コミットの前に毎回** `powershell -NoProfile -ExecutionPolicy Bypass -File work/claudia-updates.ps1` を実行し、できた更新ファイルを同じコミットに含める。このスクリプトが、ルート（ゴースト）、`claudia/`、`claudia_vertical/` の 3 か所の更新ファイルを一度に作り直す（このゴースト専用のスクリプトで、スキル `ukagaka-developer` の `build-nar.ps1` を使う。スキルは `-SkillDir`、環境変数 `UKADEV_SKILL_DIR`、Claude Code のプラグインのキャッシュの順に探す）。
+- ネットワーク更新: `https://ponadocs.shillest.net/claudia/`（GitHub Pages。独自ドメインで、`ponapalt.github.io/claudia/` はここへ転送される）。`On_homeurl` は `ghost/master/dic/normal/yaya_homeurl.dic` と `ghost/master/dic/emerg/yaya_homeurl.dic` の 2 か所に書く。
+  - 配布物は `.github/workflows/auto_deploy.yml` が作る。辞書チェック（`auto check`）が通った `main` / `master` の push ごとに、`.github/scripts/build-site.ps1` が nar（`.narignore` で除外）と更新ファイル一式（`.updateignore` で除外）を作り、`site/` の紹介ページと一緒に Pages に出す。**`updates2.dau` と `updates.txt` は作らず、コミットもしない**（`.gitignore` で除外してある）。
+  - 手元でも `pwsh ./.github/scripts/build-site.ps1`（`-ListOnly` で一覧だけ）で同じものを `build/site` に作れる。`site/` は紹介ページなので出力先にしない。リポジトリの Settings > Pages > Source は「GitHub Actions」にしておく。
+  - nar は GitHub Releases にも置く。タグ `latest` の Release 1 件だけを持ち、デプロイのたびに作り直す。固定の URL は `https://github.com/ponapalt/claudia/releases/latest/download/claudia.nar`（紹介ページのダウンロードボタンが指す）。
+  - 同梱バルーン `claudia/` と `claudia_vertical/` は、それぞれの `descript.txt` の `homeurl`（`https://ponadocs.shillest.net/claudia/claudia/`、`https://ponadocs.shillest.net/claudia/claudia_vertical/`）から別に更新される。ゴーストの更新からは `.updateignore` で外し、バルーンごとの更新ファイルは `install.txt` の `balloon*.directory` から `build-site.ps1` が作る。`homeurl` は `work/balloon/text/*/descript.txt`（バルーンの元テキスト）にも書く。
+  - 旧 URL（`https://raw.githubusercontent.com/ponapalt/claudia/main/`）から更新する利用者を新しい URL へ移すため、ルート、`claudia/`、`claudia_vertical/` に固定の `updates2.dau` と `updates.txt` をコミットしてある（`.gitignore` の対象なので `git add -f` で追加した）。これは凍結したファイルで、消さず、作り直さない。
 
 ## ライセンス
 

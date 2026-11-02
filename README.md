@@ -23,4 +23,4 @@ AI エージェント向けのスキル [ukagaka-developer](https://github.com/u
 
 - [GHOST.md](GHOST.md): このゴーストに固有の情報（キャラクター、サーフェス、辞書の構成）
 - [AGENTS.md](AGENTS.md): エージェント向けの指示書
-- [site/](site/): 紹介ページ（GitHub Pages。`.github/workflows/pages.yml` で公開）
+- [site/](site/): 紹介ページ（GitHub Pages。`.github/workflows/auto_deploy.yml` で公開）
