@@ -19,6 +19,9 @@ craftman,ponapalt&claudia
 craftmanw,ponapalt&claudia
 craftmanurl,https://ponadocs.shillest.net/claudia/
 
+metainfo,https://ponadocs.shillest.net/claudia/.ukagaka/
+githubrepo,https://github.com/ponapalt/claudia
+
 menu.background.alignment,leftbottom
 menu.foreground.alignment,leftbottom
 menu.sidebar.alignment,bottom

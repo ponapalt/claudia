@@ -1,0 +1,11 @@
+//meta info
+type,ghost
+name,悪役令嬢クローディア
+uuid,tROxKgTVD9nx/bbZidTz2Q==
+sakura.name,Claudia
+kero.name,Anthony
+has_terms,0
+homeurl,https://ponadocs.shillest.net/claudia/
+craftman,ponapalt&claudia
+craftmanurl,https://ponadocs.shillest.net/claudia/
+languages,ja

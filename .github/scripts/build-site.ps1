@@ -14,6 +14,9 @@
       <balloon>/updates2.dau, updates.txt and the balloon files
                               for each balloon bundled by install.txt (balloon.directory); the balloon is not
                               in the update files of the ghost, and its descript.txt has its own "homeurl"
+      .ukagaka/               the metainfo folder (metainfo-standard): the tracked files of .ukagaka/, copied as they
+                              are. It is not in the nar or the update files (.narignore), and not in the list
+                              above; "metainfo" in the ghost descript.txt points here
       index.html, .nojekyll
     The introduction page of the ghost (the folder -IntroDir, "site" by default) is copied over the output, so its
     index.html replaces the plain one above. It is not part of the nar or the update files (.narignore).
@@ -323,6 +326,18 @@ $index = @"
 $balloonLinks
 "@
 [IO.File]::WriteAllText((Join-Path $OutDir 'index.html'), $index, $utf8)
+
+# Metainfo folder: published as it is, next to (not inside) the update files. The folder name starts with "."
+# (hence .nojekyll above, and actions/upload-pages-artifact must be v3: v4 leaves out hidden files).
+$metainfoFiles = @($files | Where-Object { $_.StartsWith('.ukagaka/', [StringComparison]::Ordinal) })
+foreach ($relative in $metainfoFiles) {
+    $target = Join-Path $OutDir $relative
+    $targetDir = Split-Path $target -Parent
+    if (-not (Test-Path -LiteralPath $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
+    Copy-Item -LiteralPath (Join-Path $Root $relative) -Destination $target -Force
+}
+if ($metainfoFiles.Count -gt 0) { Write-Host ("copied the metainfo folder: .ukagaka ({0} files)" -f $metainfoFiles.Count) }
+else { Write-Warning '.ukagaka/ has no tracked files: the metainfo folder is not published' }
 
 # Introduction page: replaces the plain index.html above and adds its images
 $intro = Join-Path $Root $IntroDir

@@ -17,6 +17,10 @@
 # the repository's own files; only in the repository
 /.github/
 
+# metainfo for web applications (metainfo-standard). Not in the nar or in network updates;
+# .github/scripts/build-site.ps1 publishes it on its own at <homeurl>.ukagaka/
+/.ukagaka/
+
 # editor and git settings; only in the repository
 /.editorconfig
 /.gitattributes

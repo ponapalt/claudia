@@ -14,6 +14,10 @@
   - 手元でも `pwsh ./.github/scripts/build-site.ps1`（`-ListOnly` で一覧だけ）で同じものを `build/site` に作れる。`site/` は紹介ページなので出力先にしない。リポジトリの Settings > Pages > Source は「GitHub Actions」にしておく。
   - nar は GitHub Releases にも置く。タグ `latest` の Release 1 件だけを持ち、デプロイのたびに作り直す。固定の URL は `https://github.com/ponapalt/claudia/releases/latest/download/claudia.nar`（紹介ページのダウンロードボタンが指す）。
   - 同梱バルーン `claudia/` と `claudia_vertical/` は、それぞれの `descript.txt` の `homeurl`（`https://ponadocs.shillest.net/claudia/claudia/`、`https://ponadocs.shillest.net/claudia/claudia_vertical/`）から別に更新される。ゴーストの更新からは `.updateignore` で外し、バルーンごとの更新ファイルは `install.txt` の `balloon*.directory` から `build-site.ps1` が作る。`homeurl` は `work/balloon/text/*/descript.txt`（バルーンの元テキスト）にも書く。
+  - metainfo（[metainfo-standard](https://github.com/ukatech/metainfo-standard)。ゴーストキャプターさくらなど Web アプリ向けのゴースト情報）はリポジトリのルートの `.ukagaka/`（`descript.txt`、`icon.png`、`preview/sakura.png` と `kero.png`。画像はシェルの立ち絵とアイコンの複製）。nar と更新ファイルには入れず（`.narignore`）、`build-site.ps1` が Pages の `https://ponadocs.shillest.net/claudia/.ukagaka/` に別に出す。ゴーストの `descript.txt` の `metainfo` がこの URL を指し、`githubrepo` も書いてある。
+    - UUID（`tROxKgTVD9nx/bbZidTz2Q==`）は metainfo の URL の文字列から決まる。**URL を 1 文字でも変えると UUID が変わる**ので、独自ドメインやパスを変えるときは、UUID を計算し直して `.ukagaka/descript.txt` に書く。
+    - `.ukagaka/` は先頭が `.` のフォルダなので、`auto_deploy.yml` の `actions/upload-pages-artifact` は v3 のままにする（v4 は隠しファイルを含めない）。
+    - シェルの立ち絵や `icon.ico` を作り直したら、`.ukagaka/preview/` と `.ukagaka/icon.png` も入れ替える（`icon.png` は `icon.ico` の 256px の PNG をそのまま取り出したもの）。
   - 旧 URL（`https://raw.githubusercontent.com/ponapalt/claudia/main/`）から更新する利用者を新しい URL へ移すため、ルート、`claudia/`、`claudia_vertical/` に固定の `updates2.dau` と `updates.txt` をコミットしてある（`.gitignore` の対象なので `git add -f` で追加した）。
     - 載せているのは、新しい homeurl を運ぶファイル（ルートは `yaya_homeurl.dic` 2 つ、バルーンは `descript.txt`）と `delete.txt` だけ。
     - 凍結したファイルで、消さず、作り直さない。載せたファイルを変えると MD5 が合わなくなるので、`delete.txt` と、`yaya_homeurl.dic`、バルーンの `descript.txt` は、旧 URL の利用者が移り終えるまで触らない。
