@@ -1660,6 +1660,12 @@ CC.ListButler
 //CC.NewSession を呼び、そのフォルダを cwd にして claude を引数なしで EXECUTE する。
 //claude を拡張子なしで呼ぶのは、claude.exe 以外の入り口（他の OS）でも動くようにするため。
 //EXECUTE はコンソールの見せ方を指定できないので、窓は既定の端末で開く。
+//
+//開く先は、作業履歴と新規起動の頁の下端の選択肢「起動先：CLI／アプリ」で切り替える（CC.LaunchItem、
+//OnCCLaunch。選んだ先を ccapp に覚える。CC.UseApp）。アプリ版は、Claude のデスクトップアプリ（MSIX）に
+//ディープリンクを渡す。続きは claude://resume?session=<sessionId>（CLI の記録をアプリに取り込んで開く）、
+//新規は claude://code/new?folder=<URL エンコードした作業フォルダ>（Code の作業フォルダを埋めて開く）。
+//どちらも既定のアプリに ShellExecute を渡すだけなので、アプリが無いと戻り値が 33 未満になる。
 //******************************************************************************
 
 //------------------------------------------------------------------------------
@@ -1708,6 +1714,92 @@ CC.Quick
 CC.PageBottom
 {
 	'\0\n\n[half]' + _argv[0] + '\n' + MENU.InfoBar(_argv[1])
+}
+
+//------------------------------------------------------------------------------
+//CLI 版（claude コマンド）が入っていれば 1
+//  claude.exe の標準の置き場（ネイティブ版 %USERPROFILE%\.local\bin、npm の %APPDATA%\npm）と、
+//  PATH の各フォルダを見る。WindowsApps 以下（アプリ版の実行エイリアス）は CLI ではないので除く
+//  %USERPROFILE%\.claude はアプリ版の Code も作るので、CLI の有無の判定には使わない
+//------------------------------------------------------------------------------
+CC.HasCli
+{
+	_dirs = IARRAY
+	_d    = ''
+
+	if FSIZE(GETENV('USERPROFILE') + '\.local\bin\claude.exe') > 0 || FSIZE(GETENV('APPDATA') + '\npm\claude.cmd') > 0 {
+		return 1
+	}
+	_dirs = SPLIT(GETENV('PATH'), ';')
+	foreach _dirs ; _d {
+		_d = RE_REPLACE(REPLACE(_d, '"', ''), '[\\/]+$', '')
+		if STRLEN(_d) == 0 || '\windowsapps' _in_ TOLOWER(_d) {
+			continue
+		}
+		if FSIZE(_d + '\claude.exe') > 0 || FSIZE(_d + '\claude.cmd') > 0 {
+			return 1
+		}
+	}
+	0
+}
+
+//------------------------------------------------------------------------------
+//アプリ版（Claude のデスクトップアプリ。MSIX パッケージ）が入っていれば 1
+//  WindowsApps 以下は一般ユーザーには一覧できないので、パッケージごとのデータのフォルダ
+//  %LOCALAPPDATA%\Packages\AnthropicPBC.Claude_fnn82j28hfe8t の有無で見る
+//  （接尾辞は発行元から決まる固定の値。アンインストールすると消える）
+//------------------------------------------------------------------------------
+CC.HasApp
+{
+	_attr = FATTRIB(GETENV('LOCALAPPDATA') + '\Packages\AnthropicPBC.Claude_fnn82j28hfe8t')
+
+	if ARRAYSIZE(_attr) > 2 && _attr[2] == 1 {
+		1
+	}
+	else {
+		0
+	}
+}
+
+//------------------------------------------------------------------------------
+//起動先（履歴の続きと新規起動を開く先）がアプリ版なら 1、CLI 版（端末）なら 0
+//  ccapp は、作業履歴と新規起動の頁の下端の選択肢で切り替えたときに 1（アプリ）か 0（CLI）になる
+//  アプリ版は、Claude のデスクトップアプリ（MSIX パッケージ。claude:// を受け付ける）
+//  まだ切り替えていない（ccapp が空）間は、入っているほうに合わせる。両方入っていれば CLI、
+//  アプリだけならアプリ、どちらも見つからなければ CLI。あとから入れたものにも追いつく
+//------------------------------------------------------------------------------
+CC.UseApp
+{
+	if GETTYPE(ccapp) == 0 {
+		if CC.HasCli {
+			return 0
+		}
+		if CC.HasApp {
+			return 1
+		}
+		return 0
+	}
+	if ccapp == 1 {
+		1
+	}
+	else {
+		0
+	}
+}
+
+//------------------------------------------------------------------------------
+//起動先を切り替える選択肢（MENU.Grid に渡す「表示する文字列|関数名|引数…」）
+//  _argv[0] 今の頁の種類（hist 作業履歴 / new 新規起動）/ _argv[1] 今の頁の番号（切り替えたあと同じ頁に戻る）
+//  表示は今の起動先。選ぶと OnCCLaunch（yaya_menu.dic）が切り替えて、同じ頁を出し直す
+//------------------------------------------------------------------------------
+CC.LaunchItem
+{
+	_label = '起動先：CLI'
+
+	if CC.UseApp {
+		_label = '起動先：アプリ'
+	}
+	_label + '|OnCCLaunch|' + _argv[0] + '|' + _argv[1]
 }
 
 //------------------------------------------------------------------------------
@@ -2004,7 +2096,7 @@ CC.PageHist
 	if _total == 0 {
 		_talk  = '\u\s[10]\0\s[3]\b[2]\_q' + CC.Tabs(2) + '続きを開ける履歴が、\nまだございませんわ。\_q'
 		_talk += '\w8\1記録が残っているのは、\w9\nClaude Code が片付ける前の分だけでございます。'
-		return _talk + CC.PageBottom(MENU.Grid('-', '-', '戻る|OpenMenu'), MENU.HistInfo(0, 1, 1))
+		return _talk + CC.PageBottom(MENU.Grid('-', '-', '戻る|OpenMenu', CC.LaunchItem('hist', 1)), MENU.HistInfo(0, 1, 1))
 	}
 	_talk = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(2) + 'どれの続きを開きますの？\n温＝1時間以内でキャッシュ有効／冷＝超過\n\n[half]'
 	_end  = _page * _per
@@ -2025,7 +2117,7 @@ CC.PageHist
 	if _page < _pages {
 		_next = '次の頁|OnCCHistPage|' + (_page + 1)
 	}
-	_talk + CC.PageBottom(MENU.Grid(_prev, _next, '戻る|OpenMenu'), MENU.HistInfo(_total, _page, _pages))
+	_talk + CC.PageBottom(MENU.Grid(_prev, _next, '戻る|OpenMenu', CC.LaunchItem('hist', _page)), MENU.HistInfo(_total, _page, _pages))
 }
 
 //------------------------------------------------------------------------------
@@ -2068,6 +2160,14 @@ CC.Resume
 	_tail = CC.ReadTail(_cwd, _id)
 	_name = SHIORI3FW.MakeShortText(CC.Label(_tail['agent'], _cwd, _id), 30)
 	//---- 戻り値は ShellExecute のもの。33 以上なら起動できている
+	//  アプリ版は claude://resume?session=<sessionId>（CLI の記録をアプリに取り込んで開く。作業フォルダは要らない）
+	if CC.UseApp {
+		_ret = EXECUTE('claude://resume?session=' + _id)
+		if _ret < 33 {
+			return '\u\s[10]\0\s[3]Claude のアプリを起動できませんでしたわ。\w8\1アプリは、\w9\nお入れでしょうか。\e'
+		}
+		return '\u\s[10]\0\s[26]よろしくてよ。\w9\n「' + _name + '」の続きを\w9\nアプリで開きますわ。\w8\1アプリをご覧くださいませ。\e'
+	}
 	_ret = EXECUTE('claude', '-r "' + _id + '"', REPLACE(_cwd, '\', '/'))
 	if _ret < 33 {
 		return '\u\s[10]\0\s[3]claude を起動できませんでしたわ。\w8\1Claude Code は、\w9\nお入れでしょうか。\e'
@@ -2171,7 +2271,7 @@ CC.PageNew
 	if _total == 0 {
 		_talk  = '\u\s[10]\0\s[3]\b[2]\_q' + CC.Tabs(3) + '開けるフォルダが、\nまだ履歴にございませんわ。\_q'
 		_talk += '\w8\1Claude Code をお使いになれば、\w9\nここに並びます。'
-		return _talk + CC.PageBottom(MENU.Grid('-', '-', '戻る|OpenMenu'), MENU.NewInfo(0, 1, 1))
+		return _talk + CC.PageBottom(MENU.Grid('-', '-', '戻る|OpenMenu', CC.LaunchItem('new', 1)), MENU.NewInfo(0, 1, 1))
 	}
 	_talk = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(3) + 'どのフォルダで始めますの？\n最後に使った順ですわ。\n\n[half]'
 	_end  = _page * _per
@@ -2195,7 +2295,7 @@ CC.PageNew
 	if _page < _pages {
 		_next = '次の頁|OnCCNewPage|' + (_page + 1)
 	}
-	_talk + CC.PageBottom(MENU.Grid(_prev, _next, '戻る|OpenMenu'), MENU.NewInfo(_total, _page, _pages))
+	_talk + CC.PageBottom(MENU.Grid(_prev, _next, '戻る|OpenMenu', CC.LaunchItem('new', _page)), MENU.NewInfo(_total, _page, _pages))
 }
 
 //------------------------------------------------------------------------------
@@ -2226,6 +2326,14 @@ CC.NewSession
 	}
 	_name = SHIORI3FW.MakeShortText(CC.Safe(CC.ProjectName(_cwd)), 30)
 	//---- 戻り値は ShellExecute のもの。33 以上なら起動できている
+	//  アプリ版は claude://code/new?folder=<URL エンコードした作業フォルダ>（Code の新規セッションの作業フォルダを埋めて開く）
+	if CC.UseApp {
+		_ret = EXECUTE('claude://code/new?folder=' + STRENCODE(_cwd, 'UTF-8', 'url'))
+		if _ret < 33 {
+			return '\u\s[10]\0\s[3]Claude のアプリを起動できませんでしたわ。\w8\1アプリは、\w9\nお入れでしょうか。\e'
+		}
+		return '\u\s[10]\0\s[26]よろしくてよ。\w9\n「' + _name + '」で\w9\nアプリを開きますわ。\w8\1アプリをご覧くださいませ。\e'
+	}
 	_ret = EXECUTE('claude', '', REPLACE(_cwd, '\', '/'))
 	if _ret < 33 {
 		return '\u\s[10]\0\s[3]claude を起動できませんでしたわ。\w8\1Claude Code は、\w9\nお入れでしょうか。\e'

@@ -509,6 +509,28 @@ OnCCNew
 	CC.NewSession(reference[0])
 }
 
+//---- 起動先（CLI／アプリ）の切り替え。切り替えたあと、同じ頁を出し直す
+//  reference[0] が頁の種類（hist 作業履歴 / new 新規起動）、reference[1] が頁の番号
+OnCCLaunch
+{
+	_page = TOINT(reference[1])
+	_talk = ''
+
+	if CC.UseApp {
+		ccapp = 0
+	}
+	else {
+		ccapp = 1
+	}
+	if reference[0] == 'new' {
+		_talk = CC.Quick(CC.PageNew(_page))
+	}
+	else {
+		_talk = CC.Quick(CC.PageHist(_page))
+	}
+	_talk
+}
+
 //---- お知らせ: Claude Code のプラグイン（鈴）の状態と、付け外し（yaya_cchook.dic）
 Menu_CCHOOK
 {
