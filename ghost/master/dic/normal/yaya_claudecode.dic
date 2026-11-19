@@ -1746,19 +1746,32 @@ CC.HasCli
 //------------------------------------------------------------------------------
 //アプリ版（Claude のデスクトップアプリ。MSIX パッケージ）が入っていれば 1
 //  WindowsApps 以下は一般ユーザーには一覧できないので、パッケージごとのデータのフォルダ
-//  %LOCALAPPDATA%\Packages\AnthropicPBC.Claude_fnn82j28hfe8t の有無で見る
-//  （接尾辞は発行元から決まる固定の値。アンインストールすると消える）
+//  %LOCALAPPDATA%\Packages\<パッケージファミリー名> の有無で見る（アンインストールすると消える）
+//  パッケージファミリー名は「名前_発行元から決まる 13 文字」。名前と 13 文字は配布の経路や
+//  署名で変わりうる（実機は AnthropicPBC.Claude_fnn82j28hfe8t、公式の説明では Claude_pzs8sxrjxfjjc）ので、
+//  決め打ちせず Packages を列挙して、名前が Claude / Anthropic.Claude / AnthropicPBC.Claude の
+//  どれかで、あとに 13 文字が付くフォルダを探す（他の発行元の Claude という名前のアプリは除く）
 //------------------------------------------------------------------------------
 CC.HasApp
 {
-	_attr = FATTRIB(GETENV('LOCALAPPDATA') + '\Packages\AnthropicPBC.Claude_fnn82j28hfe8t')
+	_dirs = IARRAY
+	_d    = ''
+	_base = GETENV('LOCALAPPDATA') + '\Packages'
 
-	if ARRAYSIZE(_attr) > 2 && _attr[2] == 1 {
-		1
+	if STRLEN(GETENV('LOCALAPPDATA')) == 0 {
+		return 0
 	}
-	else {
-		0
+	//---- FENUM はディレクトリ名の先頭に \ を付けて返す
+	_dirs = SPLIT(FENUM(_base), ',')
+	foreach _dirs ; _d {
+		if RE_SEARCH(TOLOWER(_d), '^\\((anthropic(pbc)?\.)?)claude_[0-9a-z]{13}$') {
+			_attr = FATTRIB(_base + _d)
+			if ARRAYSIZE(_attr) > 2 && _attr[2] == 1 {
+				return 1
+			}
+		}
 	}
+	0
 }
 
 //------------------------------------------------------------------------------
