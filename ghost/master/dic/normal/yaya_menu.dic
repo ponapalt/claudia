@@ -560,6 +560,35 @@ OnCCHookDoneFailure
 	CCH.DoneFailure
 }
 
+//---- 導入物: 入れてあるプラグイン・MCP・スキル・マーケットプレイスの一覧と、プラグインの有効・無効（yaya_ccinv.dic）
+Menu_CCINV
+{
+	CC.Quick(CCI.Page('plugin', 1))
+}
+
+//---- 導入物の小見出しと頁送り（reference[0] が種類、reference[1] が頁の番号）
+OnCCIPage
+{
+	CC.Quick(CCI.Page(reference[0], TOINT(reference[1])))
+}
+
+//---- プラグインの有効・停止を切り替える（reference[0] が id、reference[1] が合言葉）
+OnCCIToggle
+{
+	CCI.Toggle(reference[0], reference[1])
+}
+
+//---- 手続きが終わった（CCI.Toggle が見張る印のファイルが書き換わった）
+OnCCIDone
+{
+	CCI.Done
+}
+
+OnCCIDoneFailure
+{
+	CCI.DoneFailure
+}
+
 //---- 功績録（yaya_ccstats.dic）。メニューから開くと本日の業務報告（1 頁目）を出し、回数を数える
 Menu_CCSTATS
 {

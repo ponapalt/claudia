@@ -1,0 +1,872 @@
+//******************************************************************************
+// 悪役令嬢クローディア
+// Claude Code の導入物（プラグイン・MCP・スキル・マーケットプレイス）の一覧と、プラグインの有効・無効
+//******************************************************************************
+//
+//メニュー「Claude Code は？」の 5 頁目「導入物」（CCI.Page）。上端の見出しの下の小見出しで、
+//4 つの一覧を切り替える。
+//  プラグイン  %USERPROFILE%\.claude\plugins\installed_plugins.json のうち scope が user のもの。
+//              有効・停止は settings.json の enabledPlugins。選ぶと切り替える（OnCCIToggle）。
+//              claude.ai のアカウントから同期されたプラグイン（plugins\synced\<bucket>\manifest.json）は
+//              別の持ち主のものなので、〔同期〕と書いて見るだけにする
+//  MCP         ~/.claude.json の最上位 mcpServers（ユーザーが入れたもの）と、プラグインが持つ .mcp.json。
+//              見るだけ（理由は下）
+//  スキル      %USERPROFILE%\.claude\skills\<名前>\SKILL.md（ユーザーが置いたもの）、
+//              skills\synced\<bucket>\manifest.json（claude.ai から同期されたもの）、
+//              プラグインの skills\<名前>\SKILL.md。見るだけ（理由は下）
+//  市場        plugins\known_marketplaces.json。見るだけ
+//
+//操作できるのはプラグインだけにしてある。
+//  - プラグインは claude plugin enable / disable --scope user が正式の手段で、settings.json の
+//    enabledPlugins を Claude Code 自身が書き換える。お知らせの頁（yaya_cchook.dic）と同じく、
+//    cmd /c で走らせ、結果を印のファイルの filewatch で受ける（CCI.Toggle / CCI.Done）
+//  - ユーザーの MCP は、claude mcp に無効化の手段が無い（remove は設定ごと消す）。/mcp の無効化は
+//    プロジェクトごとに ~/.claude.json へ書かれ、全体を止める公式の方法は確認できていない
+//  - ユーザーのスキルは settings.json の skillOverrides で止められるが、ユーザーの設定ファイルを
+//    辞書から書き換えることになり、書式を壊す危険がある。プラグインのスキルには効かない
+//  - settings.json などのユーザーの設定ファイルは、辞書からは書き換えない（読むだけ）
+//
+//読むファイルは Claude Code の内部のファイルで、書式は変わりうる。読めなければ空の一覧になる。
+//~/.claude.json は大きく（数百 KB）、トークンなどが入りうる。mcpServers の中の名前・type・command・
+//url の宛先だけを 1 行ずつ拾い、env や headers の行は読み捨てる（覚えない）。url は宛先のホスト名だけにする。
+//
+//選択肢の ID が On で始まるイベントは SSTP からも呼べてしまうので、頁を出すたびに合言葉
+//（ccinvnonce）を作って切り替えの選択肢に載せ、合わないものは受け付けない。さらに、渡された ID は
+//今の一覧にあるプラグインのものか確かめてから、cmd に渡す（文字も英数字と . _ - @ だけに絞る）。
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//定数と共通の部品
+//------------------------------------------------------------------------------
+
+//---- %USERPROFILE%\.claude（区切りは /）
+CCI.Dir
+{
+	REPLACE(GETENV('USERPROFILE'), '\', '/') + '/.claude'
+}
+
+//---- 一覧の種類（小見出しの順）。名前は CCI.KindName
+CCI.Kinds
+{
+	('plugin', 'mcp', 'skill', 'market')
+}
+
+CCI.KindName
+{
+	case _argv[0] {
+		when 'plugin' {
+			'プラグイン'
+		}
+		when 'mcp' {
+			'MCP'
+		}
+		when 'skill' {
+			'スキル'
+		}
+		when 'market' {
+			'市場'
+		}
+		others {
+			''
+		}
+	}
+}
+
+//---- 選択肢に載せる合言葉を作り直して返す
+CCI.NewNonce
+{
+	ccinvnonce = TOSTR(RAND(900000) + 100000)
+	ccinvnonce
+}
+
+//---- 手続きの最中なら 1。印が書き換わらないまま 2 分たったら、終わったものとみなす
+CCI.Busy
+{
+	_is   = 0
+	_past = GETSECCOUNT - ccinvopat
+
+	if STRLEN(ccinvop) > 0 && _past >= 0 && _past < 120 {
+		_is = 1
+	}
+	_is
+}
+
+//------------------------------------------------------------------------------
+//フォルダの下のフォルダ名を並べる（. で始まるもの、例えば .trash や .bucket-* は除く）
+//  _argv[0] フォルダ
+//  FENUM は、ディレクトリ名の先頭に \ を付けて返す
+//------------------------------------------------------------------------------
+CCI.Subdirs
+{
+	_names = IARRAY
+	_all   = SPLIT(FENUM(_argv[0]), ',')
+	_n     = ''
+
+	foreach _all ; _n {
+		if SUBSTR(_n, 0, 1) != '\' {
+			continue
+		}
+		_n = SUBSTR(_n, 1, STRLEN(_n) - 1)
+		if STRLEN(_n) == 0 || SUBSTR(_n, 0, 1) == '.' {
+			continue
+		}
+		_names ,= _n
+	}
+	_names
+}
+
+//------------------------------------------------------------------------------
+//フォルダの下の <名前>\SKILL.md を持つフォルダ名を並べる
+//  _argv[0] skills フォルダ
+//------------------------------------------------------------------------------
+CCI.SkillNames
+{
+	_names = IARRAY
+	_dirs  = CCI.Subdirs(_argv[0])
+	_d     = ''
+
+	foreach _dirs ; _d {
+		if FSIZE(_argv[0] + '/' + _d + '/SKILL.md') > 0 {
+			_names ,= _d
+		}
+	}
+	_names
+}
+
+//------------------------------------------------------------------------------
+//プラグインのフォルダにある MCP サーバーの名前を並べる
+//  .mcp.json（{"mcpServers":{...}} でも、名前を直に並べた形でも）と、
+//  .claude-plugin/plugin.json の mcpServers（ハッシュのとき）を見る
+//  _argv[0] プラグインのフォルダ
+//------------------------------------------------------------------------------
+CCI.McpNames
+{
+	_names = IARRAY
+	_h     = CC.ParseJSON(CCH.ReadAll(_argv[0] + '/.mcp.json'))
+	_m     = _h['mcpServers']
+	_p     = CC.ParseJSON(CCH.ReadAll(_argv[0] + '/.claude-plugin/plugin.json'))
+	_pm    = _p['mcpServers']
+	_k     = ''
+	_v     = ''
+
+	if GETTYPE(_m) != 5 {
+		_m = _h
+	}
+	foreach _m ; _k, _v {
+		if GETTYPE(_v) == 5 {
+			_names ,= _k
+		}
+	}
+	if GETTYPE(_pm) == 5 {
+		foreach _pm ; _k, _v {
+			if GETTYPE(_v) == 5 && !(_k _in_ _names) {
+				_names ,= _k
+			}
+		}
+	}
+	_names
+}
+
+//------------------------------------------------------------------------------
+//プラグイン 1 つの記録（ハッシュ）
+//  _argv  id / name / marketplace / version / フォルダ / 有効なら 1・停止なら 0・不明なら -1 / 種別（user か synced）
+//  skills と mcps は名前の配列。nskill と nmcp はその数
+//------------------------------------------------------------------------------
+CCI.PluginRec
+{
+	_sk  = CCI.SkillNames(_argv[4] + '/skills')
+	_mcp = CCI.McpNames(_argv[4])
+	_rec = IHASH('id', _argv[0], 'name', _argv[1], 'mkt', _argv[2], 'ver', _argv[3], 'path', _argv[4], 'en', _argv[5], 'kind', _argv[6], 'nskill', ARRAYSIZE(_sk), 'nmcp', ARRAYSIZE(_mcp))
+
+	if ARRAYSIZE(_sk) > 0 {
+		_rec['skills'] = _sk
+	}
+	if ARRAYSIZE(_mcp) > 0 {
+		_rec['mcps'] = _mcp
+	}
+	_rec
+}
+
+//------------------------------------------------------------------------------
+//ユーザーのスコープで入れたプラグイン（記録のハッシュの配列。id の順）
+//  installed_plugins.json の plugins["名前@マーケットプレイス"] は記録の配列で、scope が user のものを使う
+//  有効かどうかは settings.json の enabledPlugins（true なら 1。無い・false なら 0）
+//------------------------------------------------------------------------------
+CCI.Plugins
+{
+	_list  = IARRAY
+	_inst  = CC.ParseJSON(CCH.ReadAll(CCI.Dir + '/plugins/installed_plugins.json'))
+	_set   = CC.ParseJSON(CCH.ReadAll(CCI.Dir + '/settings.json'))
+	_pl    = _inst['plugins']
+	_ep    = _set['enabledPlugins']
+	_id    = ''
+	_recs  = IARRAY
+	_x     = IHASH()
+	_r     = IHASH()
+	_found = 0
+	_part  = IARRAY
+	_en    = 0
+
+	if GETTYPE(_pl) != 5 {
+		return _list
+	}
+	foreach _pl ; _id, _recs {
+		_found = 0
+		_r     = IHASH()
+		foreach _recs ; _x {
+			if GETTYPE(_x) == 5 && _x['scope'] == 'user' && _found == 0 {
+				_r     = _x
+				_found = 1
+			}
+		}
+		if _found == 0 {
+			continue
+		}
+		_part = SPLIT(_id, '@')
+		_en   = 0
+		if GETTYPE(_ep) == 5 && _ep[_id] == 1 {
+			_en = 1
+		}
+		_list ,= CCI.PluginRec(_id, _part[0], _part[1], _r['version'], REPLACE(_r['installPath'], '\', '/'), _en, 'user')
+	}
+	_list
+}
+
+//------------------------------------------------------------------------------
+//claude.ai のアカウントから同期されたプラグイン（記録のハッシュの配列）
+//  plugins\synced\<bucket>\manifest.json の plugins[]。置き場所は <bucket>\<名前>~g<generation>
+//  有効かどうかはファイルから分からないので、en は -1（不明）にする
+//------------------------------------------------------------------------------
+CCI.Synced
+{
+	_list = IARRAY
+	_root = CCI.Dir + '/plugins/synced'
+	_bs   = CCI.Subdirs(_root)
+	_b    = ''
+	_m    = IHASH()
+	_pl   = IARRAY
+	_x    = IHASH()
+
+	foreach _bs ; _b {
+		_m  = CC.ParseJSON(CCH.ReadAll(_root + '/' + _b + '/manifest.json'))
+		_pl = _m['plugins']
+		//---- JSON の配列の中の配列は、型が 4（配列）でなく 5（ハッシュ）で返ることがある。どちらも回せる
+		if GETTYPE(_pl) != 4 && GETTYPE(_pl) != 5 {
+			continue
+		}
+		foreach _pl ; _x {
+			if GETTYPE(_x) == 5 && STRLEN(_x['name']) > 0 {
+				_list ,= CCI.PluginRec(_x['name'] + '@synced', _x['name'], _x['marketplaceName'], _x['version'], _root + '/' + _b + '/' + _x['name'] + '~g' + _x['generation'], -1, 'synced')
+			}
+		}
+	}
+	_list
+}
+
+//---- ユーザーのプラグインのあとに、同期されたプラグインを足した配列
+CCI.AllPlugins
+{
+	_list = CCI.Plugins
+	_syn  = CCI.Synced
+	_p    = IHASH()
+
+	foreach _syn ; _p {
+		_list ,= _p
+	}
+	_list
+}
+
+//------------------------------------------------------------------------------
+//ユーザーが入れた MCP サーバー（~/.claude.json の最上位 mcpServers）。ハッシュの配列
+//  各ハッシュは name / type（stdio・http・sse など）/ via（command の実行ファイル名か、url のホスト名）
+//  ファイルは 2 文字ずつ字下げした JSON なので、行の形で拾う。
+//    "  \"mcpServers\": {"   … 最上位（字下げ 2）の mcpServers の始まり。字下げが 2 の "  }" で終わり
+//    "    \"名前\": {"       … サーバー（字下げ 4）
+//    "      \"type\": ..."   … その属性（字下げ 6）。env や headers の中身は字下げ 8 以上なので読み飛ばす
+//  url には鍵などが入りうるので、ホスト名だけを残す
+//------------------------------------------------------------------------------
+CCI.McpUser
+{
+	_list = IARRAY
+	_f    = REPLACE(GETENV('USERPROFILE'), '\', '/') + '/.claude.json'
+	_line = ''
+	_in   = 0
+	_cur  = IHASH()
+	_has  = 0
+	_val  = ''
+	_u    = IARRAY
+	_n    = 0
+
+	if FSIZE(_f) <= 0 || !FOPEN(_f, 'r') {
+		return _list
+	}
+	while 1 {
+		_line = FREAD(_f)
+		if _line == -1 {
+			break
+		}
+		if _in == 0 {
+			if RE_SEARCH(_line, '^  "mcpServers": \{$') {
+				_in = 1
+			}
+			continue
+		}
+		_n = STRLEN(_line)
+		//---- 最上位の mcpServers の終わり
+		if _line == '  }' || _line == '  },' {
+			break
+		}
+		//---- サーバーの始まり（字下げ 4。"名前": {）
+		if _n > 9 && SUBSTR(_line, 0, 5) == '    "' && SUBSTR(_line, _n - 4, 4) == '": {' {
+			if _has {
+				_list ,= _cur
+			}
+			_cur = IHASH('name', CC.Safe(SUBSTR(_line, 5, _n - 9)), 'type', '', 'via', '')
+			_has = 1
+			continue
+		}
+		if _has == 0 {
+			continue
+		}
+		//---- 属性（字下げ 6。値は文字列だけ使う）
+		if RE_SEARCH(_line, '^      "(type|command|url)": "') {
+			_val = RE_REPLACE(RE_REPLACE(_line, '^      "[a-z]+": "', ''), '",?$', '')
+			if SUBSTR(_line, 0, 14) == '      "type": ' {
+				_cur['type'] = CC.Safe(_val)
+			}
+			elseif SUBSTR(_line, 0, 17) == '      "command": ' {
+				//---- 実行ファイルの名前だけ（フォルダは落とす）
+				_cur['via'] = CC.Safe(RE_REPLACE(_val, '^.*[\\/]', ''))
+			}
+			else {
+				//---- 宛先のホスト名だけ（鍵が入りうる道筋や問い合わせ、@ の前は落とす）
+				_u = SPLIT(_val, '/')
+				if ARRAYSIZE(_u) > 2 {
+					_cur['via'] = CC.Safe(RE_REPLACE(_u[2], '^.*@', ''))
+				}
+			}
+		}
+	}
+	void FCLOSE(_f)
+	if _has {
+		_list ,= _cur
+	}
+	_list
+}
+
+//------------------------------------------------------------------------------
+//登録されているマーケットプレイス（ハッシュの配列）
+//  name / desc（取得元の要約）/ when（最後に更新した日 MM/DD）/ auto（自動更新なら 1）
+//  git の url に資格情報（user:token@）が入っていても出さないよう、:// と最初の / の間の @ までは落とす
+//------------------------------------------------------------------------------
+CCI.Markets
+{
+	_list = IARRAY
+	_k    = CC.ParseJSON(CCH.ReadAll(CCI.Dir + '/plugins/known_marketplaces.json'))
+	_name = ''
+	_m    = IHASH()
+	_src  = IHASH()
+	_kind = ''
+	_desc = ''
+	_when = ''
+	_auto = 0
+
+	foreach _k ; _name, _m {
+		if GETTYPE(_m) != 5 {
+			continue
+		}
+		_src  = _m['source']
+		_kind = _src['source']
+		_desc = _kind
+		case _kind {
+			when 'github' {
+				_desc = _src['repo']
+			}
+			when 'git' {
+				_desc = RE_REPLACE(RE_REPLACE(RE_REPLACE(_src['url'], '://[^/@]*@', '://'), '^https?://', ''), '(\.git)?/?$', '')
+			}
+			when 'directory' {
+				_desc = 'フォルダ ' + CC.ProjectName(_src['path'])
+			}
+		}
+		_when = ''
+		if STRLEN(_m['lastUpdated']) >= 10 {
+			_when = SUBSTR(_m['lastUpdated'], 5, 2) + '/' + SUBSTR(_m['lastUpdated'], 8, 2)
+		}
+		_auto = 0
+		if _m['autoUpdate'] == 1 {
+			_auto = 1
+		}
+		_list ,= IHASH('name', CC.Safe(_name), 'desc', CC.Safe(_desc), 'when', _when, 'auto', _auto)
+	}
+	_list
+}
+
+
+//******************************************************************************
+//一覧の行
+//  どれも、行の文字列（さくらスクリプト）の配列を返す。行は 2 行（先頭の行の後に \n と次の行）か 1 行。
+//  外から来る文字は CC.Safe で % [ ] 円記号を外してから入れる
+//******************************************************************************
+
+//---- プラグイン。_argv[0] は切り替えの選択肢に載せる合言葉
+CCI.RowsPlugin
+{
+	_rows  = IARRAY
+	_list  = CCI.AllPlugins
+	_p     = IHASH()
+	_name  = ''
+	_mark  = ''
+	_head  = ''
+	_sub   = ''
+	_nonce = _argv[0]
+
+	foreach _list ; _p {
+		_name = CC.Safe(_p['name'])
+		_sub  = '　' + SHIORI3FW.MakeShortText(CC.Safe(_p['mkt']), 20) + '・スキル' + _p['nskill'] + '・MCP' + _p['nmcp']
+		if _p['kind'] == 'synced' {
+			_head = '　〔同期〕' + SHIORI3FW.MakeShortText(_name, 30)
+		}
+		else {
+			_mark = '〔停止〕'
+			if _p['en'] == 1 {
+				_mark = '〔有効〕'
+			}
+			_head = '\![*]\q[' + AYATEMPLATE.EscapeText(_mark + SHIORI3FW.MakeShortText(_name, 28)) + ',OnCCIToggle,' + AYATEMPLATE.EscapeText(_p['id']) + ',' + _nonce + ']'
+		}
+		_rows ,= _head + '\n' + _sub
+	}
+	_rows
+}
+
+//---- MCP。ユーザーが入れたもの、プラグインが持つものの順
+CCI.RowsMcp
+{
+	_rows  = IARRAY
+	_user  = CCI.McpUser
+	_plug  = CCI.AllPlugins
+	_s     = IHASH()
+	_p     = IHASH()
+	_names = IARRAY
+	_n     = ''
+	_type  = ''
+	_via   = ''
+	_state = ''
+
+	foreach _user ; _s {
+		_type = _s['type']
+		if STRLEN(_type) == 0 {
+			_type = 'stdio'
+		}
+		_via = ''
+		if STRLEN(_s['via']) > 0 {
+			_via = '・' + SHIORI3FW.MakeShortText(_s['via'], 24)
+		}
+		_rows ,= '　' + SHIORI3FW.MakeShortText(_s['name'], 30) + '\n　ユーザー・' + _type + _via
+	}
+	foreach _plug ; _p {
+		if _p['nmcp'] == 0 {
+			continue
+		}
+		_state = '停止中'
+		if _p['en'] == 1 {
+			_state = '有効'
+		}
+		elseif _p['en'] == -1 {
+			_state = '同期'
+		}
+		_names = _p['mcps']
+		foreach _names ; _n {
+			_rows ,= '　' + SHIORI3FW.MakeShortText(CC.Safe(_n), 30) + '\n　プラグイン ' + SHIORI3FW.MakeShortText(CC.Safe(_p['name']), 18) + '・' + _state
+		}
+	}
+	_rows
+}
+
+//---- スキル。1 行に、名前と出どころ。ユーザー、同期、プラグインの順
+CCI.RowsSkill
+{
+	_rows  = IARRAY
+	_plug  = CCI.AllPlugins
+	_p     = IHASH()
+	_names = IARRAY
+	_n     = ''
+	_b     = ''
+	_bs    = IARRAY
+	_m     = IHASH()
+	_pl    = IARRAY
+	_x     = IHASH()
+	_root  = CCI.Dir + '/skills'
+	_state = ''
+	_from  = ''
+
+	//---- ユーザーが置いたもの
+	_names = CCI.SkillNames(_root)
+	foreach _names ; _n {
+		if _n == 'synced' {
+			continue
+		}
+		_rows ,= '　' + SHIORI3FW.MakeShortText(CC.Safe(_n), 28) + '　〔ユーザー〕'
+	}
+	//---- claude.ai から同期されたもの（skills\synced\<bucket>\manifest.json の skills[].name）
+	_bs = CCI.Subdirs(_root + '/synced')
+	foreach _bs ; _b {
+		_m  = CC.ParseJSON(CCH.ReadAll(_root + '/synced/' + _b + '/manifest.json'))
+		_pl = _m['skills']
+		if GETTYPE(_pl) != 4 && GETTYPE(_pl) != 5 {
+			continue
+		}
+		foreach _pl ; _x {
+			if GETTYPE(_x) == 5 && STRLEN(_x['name']) > 0 {
+				_rows ,= '　' + SHIORI3FW.MakeShortText(CC.Safe(_x['name']), 28) + '　〔同期〕'
+			}
+		}
+	}
+	//---- プラグインのもの。プラグインが停止中なら、そう書く
+	foreach _plug ; _p {
+		if _p['nskill'] == 0 {
+			continue
+		}
+		_state = '停止中'
+		if _p['en'] == 1 {
+			_state = '有効'
+		}
+		elseif _p['en'] == -1 {
+			_state = '同期'
+		}
+		//---- 1 行は半角 46 字。スキルの名前がプラグインの名前と同じなら、プラグインの名前は書かない
+		_names = _p['skills']
+		foreach _names ; _n {
+			_from = 'プラグイン'
+			if _n != _p['name'] {
+				_from = SHIORI3FW.MakeShortText(CC.Safe(_p['name']), 12)
+			}
+			_rows ,= '　' + SHIORI3FW.MakeShortText(CC.Safe(_n), 20) + '　〔' + _from + '・' + _state + '〕'
+		}
+	}
+	_rows
+}
+
+//---- マーケットプレイス
+CCI.RowsMarket
+{
+	_rows = IARRAY
+	_list = CCI.Markets
+	_m    = IHASH()
+	_sub  = ''
+	_mark = ''
+
+	//---- 1 行目は名前（自動更新なら〔自動〕）、2 行目は取得元と最後に更新した日（半角 46 字に収める）
+	foreach _list ; _m {
+		_sub = '　' + SHIORI3FW.MakeShortText(_m['desc'], 34)
+		if STRLEN(_m['when']) > 0 {
+			_sub += '　' + _m['when']
+		}
+		_mark = ''
+		if _m['auto'] == 1 {
+			_mark = '　〔自動〕'
+		}
+		_rows ,= '　' + SHIORI3FW.MakeShortText(_m['name'], 30) + _mark + '\n' + _sub
+	}
+	_rows
+}
+
+//---- 種類ごとの行
+//  _argv[0] 種類 / _argv[1] 合言葉
+CCI.Rows
+{
+	_rows = IARRAY
+
+	case _argv[0] {
+		when 'mcp' {
+			_rows = CCI.RowsMcp
+		}
+		when 'skill' {
+			_rows = CCI.RowsSkill
+		}
+		when 'market' {
+			_rows = CCI.RowsMarket
+		}
+		others {
+			_rows = CCI.RowsPlugin(_argv[1])
+		}
+	}
+	_rows
+}
+
+
+//******************************************************************************
+//頁
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//小見出し。今の種類は太字、ほかは選択肢にする（OnCCIPage の引数は 種類, 頁）
+//------------------------------------------------------------------------------
+CCI.SubTabs
+{
+	_kinds = CCI.Kinds
+	_k     = ''
+	_talk  = ''
+	_first = 1
+
+	foreach _kinds ; _k {
+		if _first == 0 {
+			_talk += '｜'
+		}
+		_first = 0
+		if _k == _argv[0] {
+			_talk += '\f[bold,1]' + CCI.KindName(_k) + '\f[default]'
+		}
+		else {
+			_talk += '\q[' + CCI.KindName(_k) + ',OnCCIPage,' + _k + ',1]'
+		}
+	}
+	_talk + '\n'
+}
+
+//---- 情報バーの中身。「17:48 現在　プラグイン 3件・1/1頁」
+//  _argv[0] 種類 / _argv[1] 件数 / _argv[2] 今の頁 / _argv[3] 頁の数
+CCI.Info
+{
+	_t = GETTIME
+	_t[4] + ':' + SUBSTR(TOSTR(100 + _t[5]), 1, 2) + ' 現在　' + CCI.KindName(_argv[0]) + ' ' + _argv[1] + '件・' + _argv[2] + '/' + _argv[3] + '頁'
+}
+
+//---- 頁の見出しの、クローディアの言葉
+CCI.Header
+{
+	case _argv[0] {
+		when 'mcp' {
+			'使える MCP の一覧ですわ。\nユーザーとプラグインの分ですわ。\n\n[half]'
+		}
+		when 'skill' {
+			'使えるスキルの一覧ですわ。\n\n[half]'
+		}
+		when 'market' {
+			'登録してある市場の一覧ですわ。\n\n[half]'
+		}
+		others {
+			'入れてあるプラグインですわ。\n選ぶと、有効と停止が替わります。\n\n[half]'
+		}
+	}
+}
+
+//---- アンソニーのひとこと
+CCI.Butler
+{
+	case _argv[0] {
+		when 'mcp' {
+			'こちらは見るだけでございます。\w9\nclaude.ai のコネクタは、\w9\nここには出ません。'
+		}
+		when 'skill' {
+			'こちらは見るだけでございます。\w9\n止めたいときは、\w9\nプラグインの頁からどうぞ。'
+		}
+		when 'market' {
+			'こちらは見るだけでございます。\w9\n「自動」は自動更新の印でございます。'
+		}
+		others {
+			'動いているセッションには、\w9\n/reload-plugins か、\w9\n開き直しで効きます。'
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
+//導入物の頁。上端の見出しと小見出し、一覧、選択肢、情報バーを、間を取らずに一度に出す（CC.Quick）
+//  _argv[0] 種類（plugin / mcp / skill / market。ほかは plugin）/ _argv[1] 頁の番号（1 から。範囲を外れたら寄せる）
+//  プラグインと MCP と市場は 2 行ずつ 6 件、スキルは 1 行ずつ 12 件
+//------------------------------------------------------------------------------
+CCI.Page
+{
+	_kind  = _argv[0]
+	_nonce = ''
+	_rows  = IARRAY
+	_per   = 6
+	_total = 0
+	_pages = 1
+	_page  = TOINT(_argv[1])
+	_i     = 0
+	_end   = 0
+	_prev  = '-'
+	_next  = '-'
+	_talk  = ''
+
+	if CCI.KindName(_kind) == '' {
+		_kind = 'plugin'
+	}
+	if _kind == 'skill' {
+		_per = 12
+	}
+	_nonce = CCI.NewNonce
+	_rows  = CCI.Rows(_kind, _nonce)
+	_total = ARRAYSIZE(_rows)
+	_pages = (_total + _per - 1) / _per
+	if _pages < 1 {
+		_pages = 1
+	}
+	if _page > _pages {
+		_page = _pages
+	}
+	if _page < 1 {
+		_page = 1
+	}
+	_talk = '\u\s[10]\0\s[27]\b[2]\_q' + CC.Tabs(5) + CCI.SubTabs(_kind)
+	if _total == 0 {
+		_talk += '\n[half]まだ何もございませんわ。\_q\w8\1' + CCI.Butler(_kind)
+	}
+	else {
+		_talk += CCI.Header(_kind)
+		_end   = _page * _per
+		if _end > _total {
+			_end = _total
+		}
+		for _i = (_page - 1) * _per ; _i < _end ; _i++ {
+			if _i > (_page - 1) * _per {
+				_talk += '\n'
+			}
+			_talk += _rows[_i]
+		}
+		_talk += '\_q\w8\1' + CCI.Butler(_kind)
+	}
+	if _page > 1 {
+		_prev = '前の頁|OnCCIPage|' + _kind + '|' + (_page - 1)
+	}
+	if _page < _pages {
+		_next = '次の頁|OnCCIPage|' + _kind + '|' + (_page + 1)
+	}
+	_talk + CC.PageBottom(MENU.Grid(_prev, _next, '戻る|OpenMenu', '見直す|OnCCIPage|' + _kind + '|' + _page), CCI.Info(_kind, _total, _page, _pages))
+}
+
+
+//******************************************************************************
+//プラグインの有効・無効の切り替え
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+//選んだプラグインを、有効なら停止に、停止なら有効にする
+//  _argv[0] プラグインの id（名前@マーケットプレイス）/ _argv[1] 合言葉
+//  claude plugin enable|disable <id> --scope user --json を cmd /c で走らせる
+//  EXECUTE は待たないので、出力を一時フォルダのファイルに書かせ、最後に印のファイルを書き換えさせて、
+//  それを filewatch で見張る（OnCCIDone）。EXECUTE は窓の見せ方を指定できないので、その間
+//  コンソールの窓が開く。お知らせの頁（CCH.Run）の手続きの最中は、設定の書き換えが重ならないよう断る
+//------------------------------------------------------------------------------
+CCI.Toggle
+{
+	_id   = _argv[0]
+	_list = IARRAY
+	_p    = IHASH()
+	_hit  = IHASH()
+	_ok   = 0
+	_op   = 'enable'
+	_cmd  = ''
+	_out  = CCH.TempFile('inv-out')
+	_mark = CCH.TempFile('inv-done')
+	_ret  = 0
+
+	if STRLEN(_argv[1]) == 0 || _argv[1] != ccinvnonce {
+		return ''
+	}
+	ccinvnonce = ''
+	//---- cmd に渡すので、文字を絞り、今の一覧にあるユーザーのプラグインだけを相手にする
+	_ok = RE_SEARCH(_id, '^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$')
+	if _ok == 0 {
+		return ''
+	}
+	_list = CCI.Plugins
+	foreach _list ; _p {
+		if _p['id'] == _id {
+			_hit = _p
+		}
+	}
+	if STRLEN(_hit['id']) == 0 {
+		return ''
+	}
+	if CCI.Busy || CCH.Busy {
+		return '\u\s[10]\0\s[27]まだ前の手続きの最中ですわ。\w8\1少々お待ちくださいませ。\e'
+	}
+	if _hit['en'] == 1 {
+		_op = 'disable'
+	}
+	_cmd = 'claude plugin ' + _op + ' ' + _id + ' --scope user --json'
+	//---- 前の出力を消し、印を空で作っておく（見張るファイルが先にあるように）
+	void FDEL(_out)
+	if FOPEN(_mark, 'w') {
+		void FCLOSE(_mark)
+	}
+	_ret = EXECUTE('cmd', '/c (' + _cmd + ') > "' + REPLACE(_out, '/', '\') + '" 2>&1 & echo done> "' + REPLACE(_mark, '/', '\') + '"')
+	if _ret < 33 {
+		return '\u\s[10]\0\s[3]手続きを始められませんでしたわ。\w8\1cmd を起動できなかったようでございます。\e'
+	}
+	ccinvop   = _op
+	ccinvid   = _id
+	ccinvopat = GETSECCOUNT
+	'\![execute,filewatch,' + _mark + ',--async=OnCCIDone,--debounce=500]\u\s[10]\0\s[27]手続きをいたしますわ。\w9\n少しお待ちなさいな。\w8\1窓が閉じるまで、\w9\nしばしお待ちくださいませ。\e'
+}
+
+//------------------------------------------------------------------------------
+//手続きが終わった（印のファイルが書き換わった）
+//出力のうち { で始まる行が claude plugin ... --json の結果。最後のものの outcome で成否を決める
+//------------------------------------------------------------------------------
+CCI.Done
+{
+	_op    = ccinvop
+	_id    = ccinvid
+	_mark  = CCH.TempFile('inv-done')
+	_out   = CCH.TempFile('inv-out')
+	_line  = ''
+	_h     = IHASH()
+	_last  = IHASH()
+	_ok    = 0
+	_msg   = ''
+	_part  = IARRAY
+
+	if STRLEN(_op) == 0 {
+		return '\C\![cancel,filewatch,' + _mark + ']\e'
+	}
+	ccinvop = ''
+	if FOPEN(_out, 'r') {
+		while 1 {
+			_line = FREAD(_out)
+			if _line == -1 {
+				break
+			}
+			_h = CC.ParseJSON(_line)
+			if STRLEN(_h['outcome']) > 0 {
+				_last = _h
+			}
+		}
+		void FCLOSE(_out)
+	}
+	if _last['outcome'] == 'ok' || _last['failureCode'] == 'already_in_goal_state' {
+		_ok = 1
+	}
+	_msg  = SHIORI3FW.MakeShortText(CC.Safe(_last['message']), 40)
+	_part = SPLIT(_id, '@')
+	'\![cancel,filewatch,' + _mark + ']' + CCI.TalkDone(_op, _ok, _msg, _part[0])
+}
+
+//---- 手続きの結果のトーク。_argv[0] enable / disable / _argv[1] うまくいったら 1 / _argv[2] claude の言葉 / _argv[3] プラグインの名前
+CCI.TalkDone
+{
+	_name = SHIORI3FW.MakeShortText(CC.Safe(_argv[3]), 30)
+	_msg  = _argv[2]
+
+	if _argv[1] != 1 {
+		if STRLEN(_msg) > 0 {
+			return "\u\s[10]\0\s[3]「%(_name)」の手続きが\w9\nうまくいきませんでしたわ。\w9\n「%(_msg)」\w8\1Claude Code が新しいかどうか、\w9\nお確かめくださいませ。\e"
+		}
+		return "\u\s[10]\0\s[3]「%(_name)」の手続きが\w9\nうまくいきませんでしたわ。\w8\1claude が見つからなかったか、\w9\n古いのかもしれません。\e"
+	}
+	if _argv[0] == 'disable' {
+		"\u\s[10]\0\s[6]「%(_name)」を止めましたわ。\w8\1動いているセッションは、\w9\n/reload-plugins を打つか、\w9\n開き直すまで残ります。\w8\0\s[0]\n\n頁を見直せば、\w9\n状態が変わっておりますわ。\e"
+	}
+	else {
+		"\u\s[10]\0\s[26]「%(_name)」を有効にしましたわ。\w8\1動いているセッションには、\w9\n/reload-plugins を打つか、\w9\n開き直すと効きます。\w8\0\s[0]\n\n頁を見直せば、\w9\n状態が変わっておりますわ。\e"
+	}
+}
+
+//---- 見張りが立てられなかった
+CCI.DoneFailure
+{
+	ccinvop = ''
+	'\u\s[10]\0\s[3]手続きの終わりを\w9\n見届けられませんでしたわ。\w8\1「導入物」の頁を見直して、\w9\n様子をお確かめくださいませ。\e'
+}
