@@ -1,0 +1,31 @@
+charset,UTF-8
+
+craftman,ponapalt&claudia
+craftmanw,ponapalt&claudia
+craftmanurl,https://ponadocs.shillest.net/claudia/
+
+name,Small
+type,shell
+
+seriko.use_self_alpha,1
+
+// ちびキャラのシェル。バルーンは頭の上に出す縦長の claudia_vertical（クローディア（頭上））を使う。
+// ゴーストの descript.txt の同じ項目を、このシェルのあいだだけ上書きする。
+balloon,クローディア（頭上）
+default.balloon.path,claudia_vertical
+
+sakura.balloon.alignment,none
+kero.balloon.alignment,none
+
+sakura.seriko.alignmenttodesktop,free
+kero.seriko.alignmenttodesktop,free
+
+sakura.balloon.offsetx,0
+sakura.balloon.offsety,0
+sakura.balloon.offsetxc,0
+sakura.balloon.offsetyc,0
+
+kero.balloon.offsetx,0
+kero.balloon.offsety,0
+kero.balloon.offsetxc,0
+kero.balloon.offsetyc,0

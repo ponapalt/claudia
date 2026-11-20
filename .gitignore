@@ -6,3 +6,8 @@
 updates2.dau
 updates.txt
 *.nar
+
+# ちびシェル（shell/small）の候補画像。採用分だけを work/surfaces_small/src/ に置く
+/work/surfaces_small/draft/
+/shell/small/profile/
+__pycache__/
