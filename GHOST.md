@@ -31,7 +31,7 @@
 ## 辞書の構成
 
 - `ghost/master/yaya.txt` が `dic/normal` を読む。辞書エラーのときは `yaya_emerg.txt` が `dic/emerg` を読む（緊急モード）。
-- `ghost/master/dic/system/` はシステム辞書（yaya-dic）。submodule ではなく普通のフォルダとして置いている。
+- `ghost/master/dic/system/` はシステム辞書（yaya-dic）。yaya-dic の git submodule（`.gitmodules`。ほかのゴーストと揃えている）で、**中は編集しない**。更新したら、ゴースト側で `ghost/master/dic/system` の変更をコミットして、新しい版を記録する。nar と更新ファイルには、中身が普通のファイルとして入る（yaya-dic の開発用のファイルは `.narignore` で除外している）。clone するときは `git clone --recursive`（または `git submodule update --init`）。
 - `yaya_tmpl_util.dic` のテンプレート処理（`AYATEMPLATE.*`）が、マウス反応などの関数を名前で呼び出す。
 
 ## イベントと辞書ファイルの対応

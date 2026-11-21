@@ -30,7 +30,7 @@
 /.narignore
 /.updateignore
 
-# git metadata (ghost/master/dic/system is a plain folder in the nar, not a submodule)
+# git metadata (ghost/master/dic/system is a submodule in the repository, but plain files in the nar)
 .git
 .gitmodules
 /LICENSE
