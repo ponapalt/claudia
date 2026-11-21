@@ -1860,9 +1860,13 @@ CC.PageRun
 //------------------------------------------------------------------------------
 //依頼の履歴（history.jsonl）の末尾から、セッションごとの最後の依頼の時刻と作業フォルダを拾う
 //  戻り値  ハッシュ。last sessionId → 最後の依頼の時刻（ミリ秒）のハッシュ /
-//          proj sessionId → 作業フォルダのハッシュ（円記号は JSON のまま \\ と重なっている）
-//  履歴は 3 MB ほどに育つので、末尾の 512KB から読み、約 60 日前の依頼に届かなければ倍にして
-//  読み直す（16MB まで）。JSON は解かず、文字列のまま拾う（CCS.Span と同じ）
+//          proj sessionId → 作業フォルダのハッシュ
+//  履歴は 3 MB ほどに育つので、この起動で最初に呼ばれたときは、末尾の 512KB から読み、約 60 日前の
+//  依頼に届かなければ倍にして読み直す（16MB まで）。読むのは FREADJSONL（yaya.dll Tc608-6 以降）で、
+//  時刻・sessionId・作業フォルダの 3 つのキーだけを取り出す（3.7MB の履歴で 0.06 秒ほど）。
+//  読み終えた位置と結果は覚えておき（cchistpos / cchistlast / cchistproj / cchistfirst。保存しない
+//  一時変数）、2 回目からは、履歴が増えていれば増えた分の行だけを読んで足す。履歴が縮んだ
+//  （作り直された）ときは、覚えを捨てて最初から読む
 //------------------------------------------------------------------------------
 CC.HistScan
 {
@@ -1871,79 +1875,95 @@ CC.HistScan
 	_chunk = 524288
 	_want  = (GETSECCOUNT - 60 * 86400) * 1000
 	_from  = 0
-	_first = 0
-	_last  = IHASH()
-	_proj  = IHASH()
-	_line  = ''
-	_i     = 0
-	_j     = 0
-	_ms    = 0
-	_id    = ''
-	_cwd   = ''
+	_end   = 0
 
 	if STRLEN(_path) > 0 {
 		_size = FSIZE(_path)
 	}
+	if GETTYPE(cchistlast) != 5 || GETTYPE(cchistproj) != 5 || _size <= 0 || _size < TOINT(cchistpos) {
+		CC.HistCacheReset
+	}
 	if _size <= 0 {
-		return IHASH('last', _last, 'proj', _proj)
+		return IHASH('last', IHASH(), 'proj', IHASH())
 	}
-	while 1 {
-		_from  = _size - _chunk
-		_first = 0
-		_last  = IHASH()
-		_proj  = IHASH()
-		if _from < 0 {
-			_from = 0
-		}
-		if FOPEN(_path, 'r') {
-			if _from > 0 {
-				void FSEEK(_path, _from, 'SEEK_SET')
-				//---- 行の途中から読み始めるので、最初の 1 行は捨てる
-				_line = FREAD(_path)
+	if TOINT(cchistpos) == 0 {
+		//---- この起動で最初。末尾から、約 60 日前に届くまで遡る
+		while 1 {
+			_from = _size - _chunk
+			if _from < 0 {
+				_from = 0
 			}
-			while 1 {
-				_line = FREAD(_path)
-				if _line == -1 {
-					break
-				}
-				_i = STRSTR(_line, '"timestamp":', 0)
-				if _i < 0 {
-					continue
-				}
-				_ms = TOINT(SUBSTR(_line, _i + 12, 20))
-				_i  = STRSTR(_line, '"sessionId":"', 0)
-				if _ms <= 0 || _i < 0 {
-					continue
-				}
-				_id = SUBSTR(_line, _i + 13, 36)
-				_i  = STRSTR(_line, '"project":"', 0)
-				if _i < 0 {
-					continue
-				}
-				_j   = STRSTR(_line, '"', _i + 11)
-				_cwd = SUBSTR(_line, _i + 11, _j - _i - 11)
-				if _first == 0 {
-					_first = _ms
-				}
-				_last[_id] = _ms
-				_proj[_id] = _cwd
+			cchistfirst = 0
+			cchistlast  = IHASH()
+			cchistproj  = IHASH()
+			_end = CC.HistFeed(_from)
+			if _from == 0 || (cchistfirst > 0 && cchistfirst <= _want) || _chunk >= 16777216 {
+				break
 			}
-			void FCLOSE(_path)
+			_chunk *= 2
 		}
-		if _from == 0 || (_first > 0 && _first <= _want) || _chunk >= 16777216 {
-			break
-		}
-		_chunk *= 2
+		cchistpos = _end
 	}
-	IHASH('last', _last, 'proj', _proj)
+	elseif _size > cchistpos {
+		//---- 増えた分だけ
+		cchistpos = CC.HistFeed(cchistpos)
+	}
+	IHASH('last', cchistlast, 'proj', cchistproj)
 }
 
 //------------------------------------------------------------------------------
-//作業フォルダの JSON の書き方（\\）を、ふつうの円記号 1 つに戻す
+//履歴の読み取りの覚えを空にする。値は返さない（裸で呼ぶため）
+//  保存しない一時変数にする（履歴の中身はそのつど読めるので、yaya_variable.cfg に残さない）
 //------------------------------------------------------------------------------
-CC.UnescapePath
+CC.HistCacheReset
 {
-	REPLACE(_argv[0], '\\', '\')
+	cchistpos   = 0
+	cchistfirst = 0
+	cchistlast  = IHASH()
+	cchistproj  = IHASH()
+	SHIORI3FW.RegisterTempVar('cchistpos', 'cchistfirst', 'cchistlast', 'cchistproj')
+}
+
+//------------------------------------------------------------------------------
+//履歴の _argv[0] の位置から終わりまでを読んで、cchistlast / cchistproj に足す
+//  FREADJSONL が、位置が行の途中なら最初の欠けた行を捨て、解けない行は読み飛ばす
+//  戻り値  読み終えた位置。最後の行が書きかけなら（Claude Code が書いている途中かもしれない）、
+//          その行の頭までにして、次に読み直す。最初に読めた行の時刻は cchistfirst に入れる
+//  sessionId か project の無い行は数えない
+//------------------------------------------------------------------------------
+CC.HistFeed
+{
+	_path = CCS.HistPath
+	_pos  = TOINT(_argv[0])
+	_r    = IHASH()
+	_rows = IARRAY
+	_row  = IHASH()
+	_ms   = 0
+	_id   = ''
+	_cwd  = ''
+
+	if STRLEN(_path) == 0 {
+		return _pos
+	}
+	_r = FREADJSONL(_path, _pos, 0, 'timestamp', 'sessionId', 'project')
+	if GETTYPE(_r) != 5 {
+		return _pos
+	}
+	_rows = _r['rows']
+	foreach _rows ; _row {
+		_ms  = TOINT(_row['timestamp'])
+		_id  = _row['sessionId']
+		_cwd = _row['project']
+		if _ms <= 0 || STRLEN(_id) == 0 || STRLEN(_cwd) == 0 {
+			continue
+		}
+		if TOINT(cchistfirst) == 0 {
+			cchistfirst = _ms
+		}
+		cchistlast[_id] = _ms
+		cchistproj[_id] = _cwd
+	}
+	_r['end']
 }
 
 //------------------------------------------------------------------------------
@@ -1963,7 +1983,7 @@ CC.HistList
 	_a    = IARRAY
 
 	foreach _last ; _id, _ms {
-		if FSIZE(CC.TranscriptPath(CC.UnescapePath(_proj[_id]), _id)) > 0 {
+		if FSIZE(CC.TranscriptPath(_proj[_id], _id)) > 0 {
 			_keys ,= _ms + '|' + _id
 		}
 	}
@@ -1974,22 +1994,22 @@ CC.HistList
 	_keys = ASORT('string,descending', _keys)
 	foreach _keys ; _k {
 		_a = SPLIT(_k, '|')
-		_list ,= IHASH('id', _a[1], 'ts', TOINT(_a[0]) / 1000, 'cwd', CC.UnescapePath(_proj[_a[1]]))
+		_list ,= IHASH('id', _a[1], 'ts', TOINT(_a[0]) / 1000, 'cwd', _proj[_a[1]])
 	}
 	_list
 }
 
 //------------------------------------------------------------------------------
 //会話の記録の 1 行（メッセージ）の時刻を Unix 秒にする。読めなければ 0
-//  行には "timestamp":"2026-10-05T08:12:25.123Z" の形（UTC）で入っている。
+//  行は JSON で、最上位の timestamp に "2026-10-05T08:12:25.123Z" の形（UTC）で入っている。
 //  ファイルの更新時刻は、開いただけで cost-state などの行が足されて新しくなるので使えない。
 //  時刻を持つのはメッセージの行だけで、これが API を最後に呼んだ時刻の目安になる
 //  _argv[0] 行（CC.ReadTail の last）
 //------------------------------------------------------------------------------
 CC.LineSec
 {
-	_i   = STRSTR(_argv[0], '"timestamp":"', 0)
-	_s   = ''
+	_h   = CC.ParseJSON(_argv[0])
+	_s   = SUBSTR(_h['timestamp'], 0, 19)
 	_y   = 0
 	_m   = 0
 	_d   = 0
@@ -1999,11 +2019,7 @@ CC.LineSec
 	_doy = 0
 	_doe = 0
 
-	if _i < 0 {
-		return 0
-	}
-	_s = SUBSTR(_argv[0], _i + 13, 19)
-	if STRLEN(RE_REPLACE(_s, '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$', '')) > 0 {
+	if STRLEN(_s) != 19 || STRLEN(RE_REPLACE(_s, '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$', '')) > 0 {
 		return 0
 	}
 	_y = TOINT(SUBSTR(_s, 0, 4))
@@ -2165,7 +2181,7 @@ CC.Resume
 	}
 	_scan = CC.HistScan
 	_proj = _scan['proj']
-	_cwd  = CC.UnescapePath(_proj[_id])
+	_cwd  = _proj[_id]
 	if STRLEN(_cwd) == 0 || FSIZE(CC.TranscriptPath(_cwd, _id)) <= 0 {
 		return '\u\s[10]\0\s[3]その記録は、もう片付けられたようですわ。\w8\1お選び直しくださいませ。\e'
 	}
@@ -2222,7 +2238,7 @@ CC.DirList
 	_attr = IARRAY
 
 	foreach _last ; _id, _ms {
-		_cwd = CC.UnescapePath(_proj[_id])
+		_cwd = _proj[_id]
 		if STRLEN(_cwd) == 0 {
 			continue
 		}
@@ -2242,7 +2258,7 @@ CC.DirList
 	_keys = ASORT('string,descending', _keys)
 	foreach _keys ; _k {
 		_a    = SPLIT(_k, '|')
-		_cwd  = CC.UnescapePath(_proj[_a[1]])
+		_cwd  = _proj[_a[1]]
 		_attr = FATTRIB(_cwd)
 		if ARRAYSIZE(_attr) > 2 && _attr[2] == 1 {
 			_list ,= IHASH('id', _a[1], 'ts', TOINT(_a[0]) / 1000, 'cwd', _cwd)
@@ -2335,7 +2351,7 @@ CC.NewSession
 	}
 	_scan = CC.HistScan
 	_proj = _scan['proj']
-	_cwd  = CC.UnescapePath(_proj[_id])
+	_cwd  = _proj[_id]
 	_attr = FATTRIB(_cwd)
 	if STRLEN(_cwd) == 0 || ARRAYSIZE(_attr) <= 2 || _attr[2] != 1 {
 		return '\u\s[10]\0\s[3]作業フォルダが見当たりませんわ。\w9\n移したか、消したのかしら？\e'

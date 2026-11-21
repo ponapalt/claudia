@@ -27,8 +27,9 @@
 //  - settings.json などのユーザーの設定ファイルは、辞書からは書き換えない（読むだけ）
 //
 //読むファイルは Claude Code の内部のファイルで、書式は変わりうる。読めなければ空の一覧になる。
-//~/.claude.json は大きく（数百 KB）、トークンなどが入りうる。mcpServers の中の名前・type・command・
-//url の宛先だけを 1 行ずつ拾い、env や headers の行は読み捨てる（覚えない）。url は宛先のホスト名だけにする。
+//~/.claude.json は大きく（数百 KB）、トークンなどが入りうる。FREADJSON（yaya.dll Tc608-6 以降）で
+//mcpServers のキーだけを取り出し、ほかの部分は変換しない（ファイルは yaya.dll の中で解析して捨てる）。
+//その中から使うのは、名前・type・command の実行ファイル名・url のホスト名だけで、env や headers は読まない。
 //
 //選択肢の ID が On で始まるイベントは SSTP からも呼べてしまうので、頁を出すたびに合言葉
 //（ccinvnonce）を作って切り替えの選択肢に載せ、合わないものは受け付けない。さらに、渡された ID は
@@ -279,77 +280,65 @@ CCI.AllPlugins
 //------------------------------------------------------------------------------
 //ユーザーが入れた MCP サーバー（~/.claude.json の最上位 mcpServers）。ハッシュの配列
 //  各ハッシュは name / type（stdio・http・sse など）/ via（command の実行ファイル名か、url のホスト名）
-//  ファイルは 2 文字ずつ字下げした JSON なので、行の形で拾う。
-//    "  \"mcpServers\": {"   … 最上位（字下げ 2）の mcpServers の始まり。字下げが 2 の "  }" で終わり
-//    "    \"名前\": {"       … サーバー（字下げ 4）
-//    "      \"type\": ..."   … その属性（字下げ 6）。env や headers の中身は字下げ 8 以上なので読み飛ばす
+//  並びはサーバーの名前の順（ハッシュなのでファイルの順ではない）
 //  url には鍵などが入りうるので、ホスト名だけを残す
 //------------------------------------------------------------------------------
 CCI.McpUser
 {
 	_list = IARRAY
 	_f    = REPLACE(GETENV('USERPROFILE'), '\', '/') + '/.claude.json'
-	_line = ''
-	_in   = 0
-	_cur  = IHASH()
-	_has  = 0
-	_val  = ''
+	_h    = IHASH()
+	_srv  = IHASH()
+	_name = ''
+	_def  = IHASH()
+	_type = ''
+	_cmd  = ''
+	_url  = ''
+	_via  = ''
 	_u    = IARRAY
-	_n    = 0
 
-	if FSIZE(_f) <= 0 || !FOPEN(_f, 'r') {
+	if FSIZE(_f) <= 0 {
 		return _list
 	}
-	while 1 {
-		_line = FREAD(_f)
-		if _line == -1 {
-			break
-		}
-		if _in == 0 {
-			if RE_SEARCH(_line, '^  "mcpServers": \{$') {
-				_in = 1
-			}
-			continue
-		}
-		_n = STRLEN(_line)
-		//---- 最上位の mcpServers の終わり
-		if _line == '  }' || _line == '  },' {
-			break
-		}
-		//---- サーバーの始まり（字下げ 4。"名前": {）
-		if _n > 9 && SUBSTR(_line, 0, 5) == '    "' && SUBSTR(_line, _n - 4, 4) == '": {' {
-			if _has {
-				_list ,= _cur
-			}
-			_cur = IHASH('name', CC.Safe(SUBSTR(_line, 5, _n - 9)), 'type', '', 'via', '')
-			_has = 1
-			continue
-		}
-		if _has == 0 {
-			continue
-		}
-		//---- 属性（字下げ 6。値は文字列だけ使う）
-		if RE_SEARCH(_line, '^      "(type|command|url)": "') {
-			_val = RE_REPLACE(RE_REPLACE(_line, '^      "[a-z]+": "', ''), '",?$', '')
-			if SUBSTR(_line, 0, 14) == '      "type": ' {
-				_cur['type'] = CC.Safe(_val)
-			}
-			elseif SUBSTR(_line, 0, 17) == '      "command": ' {
-				//---- 実行ファイルの名前だけ（フォルダは落とす）
-				_cur['via'] = CC.Safe(RE_REPLACE(_val, '^.*[\\/]', ''))
-			}
-			else {
-				//---- 宛先のホスト名だけ（鍵が入りうる道筋や問い合わせ、@ の前は落とす）
-				_u = SPLIT(_val, '/')
-				if ARRAYSIZE(_u) > 2 {
-					_cur['via'] = CC.Safe(RE_REPLACE(_u[2], '^.*@', ''))
-				}
-			}
-		}
+	//---- 書きかけなどで解けなければ空が返る（警告 W0026 が 1 件、ログに出る）
+	_h   = FREADJSON(_f, 'UTF-8', 'mcpServers')
+	if GETTYPE(_h) != 5 {
+		return _list
 	}
-	void FCLOSE(_f)
-	if _has {
-		_list ,= _cur
+	_srv = _h['mcpServers']
+	if GETTYPE(_srv) != 5 {
+		return _list
+	}
+	foreach _srv ; _name, _def {
+		if GETTYPE(_def) != 5 {
+			continue
+		}
+		//---- 値は文字列だけ使う
+		_type = ''
+		_cmd  = ''
+		_url  = ''
+		if GETTYPE(_def['type']) == 3 {
+			_type = _def['type']
+		}
+		if GETTYPE(_def['command']) == 3 {
+			_cmd = _def['command']
+		}
+		if GETTYPE(_def['url']) == 3 {
+			_url = _def['url']
+		}
+		_via = ''
+		if STRLEN(_cmd) > 0 {
+			//---- 実行ファイルの名前だけ（フォルダは落とす）
+			_via = CC.Safe(RE_REPLACE(_cmd, '^.*[\\/]', ''))
+		}
+		elseif STRLEN(_url) > 0 {
+			//---- 宛先のホスト名だけ（鍵が入りうる道筋や問い合わせ、@ の前は落とす）
+			_u = SPLIT(_url, '/')
+			if ARRAYSIZE(_u) > 2 {
+				_via = CC.Safe(RE_REPLACE(_u[2], '^.*@', ''))
+			}
+		}
+		_list ,= IHASH('name', CC.Safe(_name), 'type', CC.Safe(_type), 'via', _via)
 	}
 	_list
 }

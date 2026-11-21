@@ -719,9 +719,10 @@ CCS.MonthPos
 //    peak よく働く時刻（依頼が無ければ -1）/ lands 作業フォルダの数 /
 //    p0〜p2、c0〜c2 依頼の多い作業フォルダの名前と数（無い分は空文字列と 0）
 //
-//  時刻と作業フォルダは JSON を解かずに文字列で拾う。行は時刻の順に並ぶが、
-//  少し前後しても取りこぼさないよう、終わりの次の日を越えた行が出てから読むのをやめる。
-//  月の頭の行の位置を ccshmpos に覚えておき、次からは始まりの前の月の頭から読む。
+//  FREADJSONL（yaya.dll Tc608-6 以降）で、時刻（timestamp）と作業フォルダ（project）だけを取り出して
+//  読む（1 年分の 1 万行で 0.1 秒ほど）。ファイルの終わりまで読むが、行は時刻の順に並ぶので、
+//  終わりの次の日を越えた行が出たら数えるのをやめる（少し前後しても取りこぼさないよう、次の日まで見る）。
+//  月の頭の行の位置（FREADJSONL の pos）を ccshmpos に覚えておき、次からは始まりの前の月の頭から読む。
 //  覚えた位置の行がその月でなければ（履歴が作り直されたなど）、索引を捨てて頭から読む
 //------------------------------------------------------------------------------
 CCS.Span
@@ -734,12 +735,19 @@ CCS.Span
 	_check = 0
 	_prevm = 0
 	_pos   = 0
-	_line  = ''
+	_start = 0
+	_again = 0
+	_hist  = IHASH()
+	_rows  = IARRAY
+	_ps    = IARRAY
+	_ri    = 0
+	_lab   = IHASH()
+	_pr    = ''
 	_i     = 0
+	_h     = IHASH()
 	_ms    = 0
 	_key   = 0
 	_m     = 0
-	_j     = 0
 	_t     = IARRAY
 	_name  = ''
 	_n     = 0
@@ -761,84 +769,84 @@ CCS.Span
 		_hour ,= 0
 	}
 	CCS.Init
-	if STRLEN(_path) > 0 && FSIZE(_path) > 0 && FOPEN(_path, 'r') {
+	if STRLEN(_path) > 0 && FSIZE(_path) > 0 {
 		_seek = CCS.MonthPos(CCS.KeyAdd(_from, -1) / 100)
 		if _seek[0] > 0 && _seek[0] < FSIZE(_path) {
-			void FSEEK(_path, _seek[0], 'SEEK_SET')
+			_start = _seek[0]
 			_check = _seek[1]
 		}
-		while 1 {
-			_pos  = FTELL(_path)
-			_line = FREAD(_path)
-			if _line == -1 {
+		_again = 1
+		while _again {
+			_again = 0
+			_hist  = FREADJSONL(_path, _start, 0, 'timestamp', 'project')
+			if GETTYPE(_hist) != 5 {
 				break
 			}
-			_i = STRSTR(_line, '"timestamp":', 0)
-			if _i < 0 {
-				continue
-			}
-			_ms = TOINT(SUBSTR(_line, _i + 12, 20))
-			if _ms <= 0 {
-				continue
-			}
-			_key = CCS.DayKey(_ms / 1000)
-			_m   = _key / 100
-
-			//---- 索引で飛んだ先がその月の頭でなければ、索引を捨てて頭から読み直す
-			if _check > 0 {
-				if _m != _check {
-					ccshmpos = IHASH()
-					_prevm   = 0
-					void FSEEK(_path, 0, 'SEEK_SET')
-					_check = 0
+			_rows = _hist['rows']
+			_ps   = _hist['pos']
+			foreach _rows ; _ri, _h {
+				_pos = _ps[_ri]
+				_ms  = TOINT(_h['timestamp'])
+				if _ms <= 0 {
 					continue
 				}
-				_check = 0
-				_prevm = _m
-			}
-			//---- 月の頭の行の位置を覚える（頭から読んだか、前の月から読み続けたときだけ）
-			if _m > _prevm {
-				if (_prevm > 0 || _pos == 0) && !HASH_EXIST(ccshmpos, TOSTR(_m)) {
-					ccshmpos[TOSTR(_m)] = _pos
-				}
-				_prevm = _m
-			}
+				_key = CCS.DayKey(_ms / 1000)
+				_m   = _key / 100
 
-			if _key > _stop {
-				break
-			}
-			if _key < _from || _key > _to {
-				continue
-			}
-			_n += 1
-			if _key != _daykey {
-				_days  += 1
-				_daykey = _key
-				_dayn   = 0
-			}
-			_dayn += 1
-			if _dayn > _max {
-				_max    = _dayn
-				_maxkey = _key
-			}
-			_t = GETTIME(_ms / 1000)
-			_hour[_t[4]] += 1
-			if _t[4] <= 4 {
-				_late += 1
-			}
-			//---- 作業フォルダも文字列のまま拾う（JSON を解くと 1 年分で 1 秒ほどかかるため）
-			//---- 円記号は \\ と重なったままだが、CC.ProjectName は最後の区切りの後ろだけを取るので同じ名前になる
-			_name = ''
-			_i    = STRSTR(_line, '"project":"', 0)
-			if _i >= 0 {
-				_j    = STRSTR(_line, '"', _i + 11)
-				_name = CC.Label('', SUBSTR(_line, _i + 11, _j - _i - 11))
-			}
-			if STRLEN(_name) > 0 {
-				_proj[_name] = TOINT(_proj[_name]) + 1
+				//---- 索引で飛んだ先がその月の頭でなければ、索引を捨てて頭から読み直す
+				if _check > 0 {
+					if _m != _check {
+						ccshmpos = IHASH()
+						_prevm   = 0
+						_start   = 0
+						_check   = 0
+						_again   = 1
+						break
+					}
+					_check = 0
+					_prevm = _m
+				}
+				//---- 月の頭の行の位置を覚える（頭から読んだか、前の月から読み続けたときだけ）
+				if _m > _prevm {
+					if (_prevm > 0 || (_start == 0 && _ri == 0)) && !HASH_EXIST(ccshmpos, TOSTR(_m)) {
+						ccshmpos[TOSTR(_m)] = _pos
+					}
+					_prevm = _m
+				}
+
+				if _key > _stop {
+					break
+				}
+				if _key < _from || _key > _to {
+					continue
+				}
+				_n += 1
+				if _key != _daykey {
+					_days  += 1
+					_daykey = _key
+					_dayn   = 0
+				}
+				_dayn += 1
+				if _dayn > _max {
+					_max    = _dayn
+					_maxkey = _key
+				}
+				_t = GETTIME(_ms / 1000)
+				_hour[_t[4]] += 1
+				if _t[4] <= 4 {
+					_late += 1
+				}
+				//---- 作業フォルダの呼び名は、同じフォルダなら 1 回だけ作る（行ごとに作ると重い）
+				_pr = _h['project']
+				if !HASH_EXIST(_pr, _lab) {
+					_lab[_pr] = CC.Label('', _pr)
+				}
+				_name = _lab[_pr]
+				if STRLEN(_name) > 0 {
+					_proj[_name] = TOINT(_proj[_name]) + 1
+				}
 			}
 		}
-		void FCLOSE(_path)
 	}
 
 	_r = IHASH('n', _n, 'days', _days, 'max', _max, 'maxkey', _maxkey, 'late', _late, 'peak', -1, 'lands', HASH_SIZE(_proj))
