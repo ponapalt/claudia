@@ -17,7 +17,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 
 animation0.interval,sometimes
 animation0.pattern0,overlay,1001,0,67,56
@@ -39,7 +39,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface2
@@ -52,7 +52,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface3
@@ -68,7 +68,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface4
@@ -81,7 +81,7 @@ collisionex4,Hair,rect,44,92,80,146
 collisionex5,Hair,rect,124,100,146,146
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface5
@@ -94,7 +94,7 @@ collisionex4,Hair,rect,44,90,80,146
 collisionex5,Hair,rect,126,110,146,144
 collisionex6,Foot,ellipse,83,194,98,206
 collisionex7,Foot,ellipse,98,194,113,206
-collisionex8,Skirt,polygon,60,150,122,150,146,182,130,193,60,193,44,183
+collisionex8,Skirt,polygon,72,152,116,152,130,178,124,192,66,192,58,178
 }
 
 surface6
@@ -110,7 +110,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface7
@@ -125,7 +125,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 
 animation0.interval,sometimes
 animation0.pattern0,overlay,1701,0,67,56
@@ -144,7 +144,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,92,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface9
@@ -160,7 +160,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface25
@@ -176,7 +176,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface26
@@ -192,7 +192,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface27
@@ -205,7 +205,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 }
 
 surface28
@@ -220,7 +220,7 @@ collisionex4,Hair,rect,44,88,80,146
 collisionex5,Hair,rect,124,126,146,144
 collisionex6,Foot,ellipse,83,192,98,204
 collisionex7,Foot,ellipse,98,192,113,204
-collisionex8,Skirt,polygon,60,148,122,148,146,180,130,191,60,191,44,181
+collisionex8,Skirt,polygon,72,150,116,150,130,176,124,190,66,190,58,176
 
 animation0.interval,sometimes
 animation0.pattern0,overlay,1001,0,67,56
